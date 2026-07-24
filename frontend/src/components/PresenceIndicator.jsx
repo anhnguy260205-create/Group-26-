@@ -1,5 +1,5 @@
 export function PresenceIndicator({ presence, enabled, onToggleEnabled }) {
-  const { status, videoRef } = presence
+  const { status, reason, videoRef } = presence
 
   return (
     <div className="presence-indicator">
@@ -13,7 +13,7 @@ export function PresenceIndicator({ presence, enabled, onToggleEnabled }) {
               {enabled && status === 'starting' && 'Starting camera…'}
               {enabled && status === 'present' && 'Face detected'}
               {enabled && status === 'absent' && 'No face in view'}
-              {enabled && status === 'unavailable' && 'Camera unavailable'}
+              {enabled && status === 'unavailable' && (reason || 'Camera unavailable')}
             </span>
           </span>
           <button type="button" className="link-button" onClick={onToggleEnabled}>

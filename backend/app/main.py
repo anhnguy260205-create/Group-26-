@@ -29,6 +29,22 @@ load_dotenv()
 
 Base.metadata.create_all(bind=engine)
 
+# `create_all` only creates tables that don't exist yet — it never adds columns to a
+# table that's already there. stress_readings predates the mood/hours_slept/care_hours/
+# had_me_time check-in fields, so existing dev databases are missing them. Patch them in
+# here so the app keeps working against an existing app.db instead of requiring a reset.
+with engine.connect() as _conn:
+    _existing_cols = {row[1] for row in _conn.exec_driver_sql("PRAGMA table_info(stress_readings)")}
+    for _col, _ddl_type in [
+        ("mood", "INTEGER"),
+        ("hours_slept", "FLOAT"),
+        ("care_hours", "FLOAT"),
+        ("had_me_time", "BOOLEAN"),
+    ]:
+        if _col not in _existing_cols:
+            _conn.exec_driver_sql(f"ALTER TABLE stress_readings ADD COLUMN {_col} {_ddl_type}")
+    _conn.commit()
+
 app = FastAPI(title="Group-26 Caregiver Support API")
 
 app.add_middleware(

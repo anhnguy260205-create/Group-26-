@@ -15,6 +15,17 @@ export function loadFaceDetectionModel() {
   if (!loadPromise) {
     loadPromise = import('@vladmandic/face-api').then(async (faceapi) => {
       faceapiModule = faceapi
+      // face-api's bundled tfjs probes backends by priority, which tries 'wasm' first —
+      // its .wasm binary isn't served correctly by Vite (fetch falls through to the SPA
+      // index.html), so that probe always fails noisily in the console. We only need a
+      // small bounding-box model, so force 'webgl' (falling back to 'cpu') and skip the
+      // wasm probe entirely instead of fighting Vite's asset resolution for it.
+      try {
+        await faceapi.tf.setBackend('webgl')
+      } catch {
+        await faceapi.tf.setBackend('cpu')
+      }
+      await faceapi.tf.ready()
       await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL)
     })
   }
