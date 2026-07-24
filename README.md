@@ -21,9 +21,18 @@ uvicorn app.main:app --reload
 
 API runs at http://127.0.0.1:8000, docs at http://127.0.0.1:8000/docs. Uses SQLite (`backend/app.db`, auto-created).
 
-Optional: set `ANTHROPIC_API_KEY` in the environment to have the burnout reasoning and
-closing reflection phrased by Claude instead of the built-in templated text. Everything
-works with it unset — the app never depends on the LLM being reachable.
+Optional LLM (for the burnout reasoning and closing reflection wording only — never
+for the intervene / don't-intervene decision). Copy `backend/.env.example` to
+`backend/.env` and fill in one provider:
+
+- **Microsoft Foundry (primary):** set `AZURE_AI_ENDPOINT`, `AZURE_AI_API_KEY`, and
+  `AZURE_AI_MODEL` (default `claude-sonnet-4-5`). Uses Foundry's OpenAI-compatible
+  chat-completions surface.
+- **Anthropic direct (fallback):** set `ANTHROPIC_API_KEY`. Used only if the Foundry
+  vars are absent, so the app still runs without an Azure resource.
+
+Everything works with all of these unset — the app falls back to built-in templated
+text and never depends on the LLM being reachable.
 
 ## Frontend
 
