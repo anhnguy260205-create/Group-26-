@@ -1,35 +1,44 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 
-const MOODS = [
-  { value: 1, emoji: '😀', label: 'Good' },
-  { value: 2, emoji: '🙂', label: 'Okay' },
-  { value: 3, emoji: '😔', label: 'Drained' },
-  { value: 4, emoji: '😭', label: 'Barely holding on' },
+const SLIDERS = [
+  { key: 'mood', label: 'Mood', low: 'Terrible', high: 'Great' },
+  { key: 'sleep', label: 'Sleep', low: 'No rest', high: 'Fully rested' },
+  { key: 'energy', label: 'Energy', low: 'Depleted', high: 'Energized' },
+  { key: 'night_care', label: 'Night Care', low: 'None', high: 'Heavy' },
+  { key: 'free_time', label: 'Free Time', low: 'None', high: 'Plenty' },
 ]
 
+const DEFAULTS = { mood: 5, sleep: 5, energy: 5, night_care: 0, free_time: 5 }
+
 export function CheckinPage() {
-  const [mood, setMood] = useState(null)
-  const [hoursSlept, setHoursSlept] = useState('')
-  const [careHours, setCareHours] = useState('')
-  const [hadMeTime, setHadMeTime] = useState(null)
+  const navigate = useNavigate()
+  const [journal, setJournal] = useState('')
+  const [sliders, setSliders] = useState(DEFAULTS)
   const [result, setResult] = useState(null)
   const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState(null)
 
-  const canSubmit = mood != null && hoursSlept !== '' && careHours !== '' && hadMeTime != null
+  function setSlider(key, value) {
+    setSliders((prev) => ({ ...prev, [key]: Number(value) }))
+  }
 
   async function handleSubmit(e) {
     e.preventDefault()
-    if (!canSubmit) return
+    if (submitting) return
     setSubmitting(true)
+    setError(null)
     try {
-      const res = await api.submitCheckin({
-        mood,
-        hours_slept: Number(hoursSlept),
-        care_hours: Number(careHours),
-        had_me_time: hadMeTime,
-      })
+      const res = await api.submitCheckin({ journal: journal.trim(), ...sliders })
       setResult(res)
+    } catch (err) {
+      setError(
+        "Couldn't save your check-in — the backend rejected it. Make sure the server is running " +
+          'and its database is up to date (delete app.db or run migrate.py).'
+      )
+      // eslint-disable-next-line no-console
+      console.error('submitCheckin failed:', err)
     } finally {
       setSubmitting(false)
     }
@@ -37,26 +46,36 @@ export function CheckinPage() {
 
   function startOver() {
     setResult(null)
-    setMood(null)
-    setHoursSlept('')
-    setCareHours('')
-    setHadMeTime(null)
+    setJournal('')
+    setSliders(DEFAULTS)
+    setError(null)
   }
 
   if (result) {
     return (
       <div className="page checkin-page">
         <h1>Thanks for checking in</h1>
-        <div className="checkin-result">
-          <div className="checkin-score">{result.stress_score_display}</div>
-          <p className="checkin-score-label">today's stress score (0-100)</p>
+        <div className="capacity-result">
+          <div className="capacity-score">{result.capacity_score}</div>
+          <p className="capacity-score-label">today's capacity (0-100)</p>
         </div>
-        <p className="checkin-note">
-          This is a support tool, not a diagnosis — just a way to notice how things are trending.
-        </p>
-        <button type="button" onClick={startOver}>
-          Check in again
-        </button>
+        <div className="capacity-driver">
+          <span className="capacity-driver-tag">Main driver</span>
+          <strong>{result.main_driver}</strong>
+        </div>
+        <p className="capacity-reason">{result.reason}</p>
+        {result.face_stress != null && (
+          <p className="checkin-note">📷 A live facial reading was blended into this score.</p>
+        )}
+        <p className="checkin-note">A support tool, not a diagnosis — just a way to notice how things are trending.</p>
+        <div className="capacity-actions">
+          <button type="button" onClick={() => navigate('/understand-me')}>
+            Understand me
+          </button>
+          <button type="button" className="ghost" onClick={startOver}>
+            Check in again
+          </button>
+        </div>
       </div>
     )
   }
@@ -67,72 +86,48 @@ export function CheckinPage() {
       <p className="page-subtitle">One minute a day — how are you doing right now?</p>
 
       <form onSubmit={handleSubmit} className="checkin-form">
-        <fieldset>
-          <legend>Mood</legend>
-          <div className="mood-picker">
-            {MOODS.map((m) => (
-              <button
-                type="button"
-                key={m.value}
-                className={`mood-option${mood === m.value ? ' selected' : ''}`}
-                onClick={() => setMood(m.value)}
-              >
-                <span className="mood-emoji">{m.emoji}</span>
-                <span className="mood-label">{m.label}</span>
-              </button>
-            ))}
-          </div>
-        </fieldset>
-
         <label className="field">
-          Hours slept last night
-          <input
-            type="number"
-            min="0"
-            max="24"
-            step="0.5"
-            value={hoursSlept}
-            onChange={(e) => setHoursSlept(e.target.value)}
-            placeholder="e.g. 6"
+          Journal — what happened today?
+          <textarea
+            value={journal}
+            onChange={(e) => setJournal(e.target.value)}
+            placeholder="Today was..."
+            maxLength={500}
+            rows={3}
           />
         </label>
 
-        <label className="field">
-          Hours spent caregiving today
-          <input
-            type="number"
-            min="0"
-            max="24"
-            step="0.5"
-            value={careHours}
-            onChange={(e) => setCareHours(e.target.value)}
-            placeholder="e.g. 8"
-          />
-        </label>
+        <div className="slider-group">
+          {SLIDERS.map((s) => (
+            <div className="slider-field" key={s.key}>
+              <div className="slider-head">
+                <span className="slider-label">{s.label}</span>
+                <span className="slider-value">{sliders[s.key]}</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="10"
+                step="1"
+                value={sliders[s.key]}
+                onChange={(e) => setSlider(s.key, e.target.value)}
+              />
+              <div className="slider-scale">
+                <span>{s.low}</span>
+                <span>{s.high}</span>
+              </div>
+            </div>
+          ))}
+        </div>
 
-        <fieldset>
-          <legend>Did you get any time for yourself today?</legend>
-          <div className="toggle-row">
-            <button
-              type="button"
-              className={`toggle-option${hadMeTime === true ? ' selected' : ''}`}
-              onClick={() => setHadMeTime(true)}
-            >
-              Yes
-            </button>
-            <button
-              type="button"
-              className={`toggle-option${hadMeTime === false ? ' selected' : ''}`}
-              onClick={() => setHadMeTime(false)}
-            >
-              No
-            </button>
-          </div>
-        </fieldset>
+        <p className="checkin-note">
+          📷 If your camera is on, a quick facial reading is blended in automatically — no photo is stored.
+        </p>
 
-        <button type="submit" disabled={!canSubmit || submitting}>
-          {submitting ? 'Submitting…' : 'Submit check-in'}
+        <button type="submit" disabled={submitting}>
+          {submitting ? 'Scoring…' : 'Submit check-in'}
         </button>
+        {error && <p className="checkin-error">{error}</p>}
       </form>
     </div>
   )

@@ -10,7 +10,7 @@ with a templated fallback so the companion always says something supportive.
 
 from sqlalchemy.orm import Session
 
-from . import llm, models, resources
+from . import capforecast, llm, models, resources
 
 CRISIS_KEYWORDS = [
     "kill myself",
@@ -72,6 +72,38 @@ def _build_context(db: Session) -> str:
         parts.append(f"Recent journal entries: {joined}")
 
     return " ".join(parts)
+
+
+def opening_line(db: Session) -> tuple[str, str]:
+    """Proactive first line grounded in the capacity trend — e.g. 'Today looks harder than
+    yesterday.' Returns (line, source)."""
+    checkins = db.query(models.Checkin).order_by(models.Checkin.created_at).all()
+    data = capforecast.analyze(checkins) if checkins else None
+    points = data["points"] if data else []
+    delta = points[-1]["capacity"] - points[-2]["capacity"] if len(points) >= 2 else 0
+
+    if not points:
+        base = "I'm here whenever you want to check in. How are you doing right now?"
+    elif delta <= -5:
+        base = "Today looks harder than yesterday. I'm here — want to talk through it?"
+    elif delta >= 5:
+        base = "Today's looking a little brighter than yesterday. How are you feeling?"
+    else:
+        base = "Steady day so far. How are you holding up right now?"
+
+    driver = data["recurring_driver"] if data else None
+    if data and points and llm.is_configured():
+        prompt = (
+            f"Caregiver's capacity yesterday->today changed by {delta} points (negative = worse). "
+            f"Recurring strain: {driver or 'none clear'}. Write ONE short, warm opening line (max 20 "
+            "words) greeting them, naming whether today looks harder or easier than yesterday. No numbers."
+        )
+        result = llm.complete(
+            system="You are a warm, brief companion for family caregivers.", prompt=prompt, max_tokens=200
+        )
+        if result:
+            return result[0], result[1]
+    return base, "rule"
 
 
 def reply(db: Session, user_text: str) -> tuple[str, str]:

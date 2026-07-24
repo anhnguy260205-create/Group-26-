@@ -6,11 +6,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 from . import (
+    capforecast,
+    capprogress,
     companion,
+    outlook,
     delegation,
     emotion,
     journal,
     models,
+    recharge,
     reflection,
     resources,
     schemas,
@@ -117,6 +121,10 @@ def ingest_stress_reading(reading: schemas.StressReadingCreate, db: Session = De
         stress_score = scoring.heart_rate_to_stress_score(
             reading.heart_rate_bpm, reading.signal_quality
         )
+    elif reading.source == "expression":
+        if reading.expression is None:
+            raise HTTPException(status_code=422, detail="expression required for expression readings")
+        stress_score = scoring.expression_to_stress_score(reading.expression.model_dump())
     else:
         if reading.self_reported_stress is None:
             raise HTTPException(
@@ -224,25 +232,89 @@ def analyze_emotion(body: schemas.EmotionRequest):
 
 @app.post("/checkin", response_model=schemas.CheckinOut)
 def submit_checkin(body: schemas.CheckinCreate, db: Session = Depends(get_db)):
-    stress_score = scoring.checkin_to_stress_score(
-        body.mood, body.hours_slept, body.care_hours, body.had_me_time
+    """Score a Daily Check-in into a Capacity reading (journal- and face-aware via LLM, with
+    a rule fallback), persist it, and mirror it to a StressReading so the Digital Twin,
+    burnout dashboard and intervention threshold keep working off one signal."""
+    face_stress = scoring.latest_face_stress(db)
+
+    result = scoring.compute_capacity(
+        body.journal, body.mood, body.sleep, body.energy, body.night_care, body.free_time, face_stress
     )
-    reading = models.StressReading(
-        source="checkin",
-        stress_score=stress_score,
-        mood=body.mood,
-        hours_slept=body.hours_slept,
-        care_hours=body.care_hours,
-        had_me_time=body.had_me_time,
+
+    checkin = models.Checkin(
+        journal=body.journal or None,
+        mood=body.mood, sleep=body.sleep, energy=body.energy,
+        night_care=body.night_care, free_time=body.free_time,
+        face_stress=face_stress,
+        capacity_score=result["capacity"], main_driver=result["main_driver"],
+        reason=result["reason"], source=result["source"],
     )
-    db.add(reading)
+    db.add(checkin)
+
+    # Mirror to the shared stress signal (low capacity == high stress) so the existing twin
+    # and dashboard, which read StressReading, still function.
+    db.add(models.StressReading(source="checkin", stress_score=round(1 - result["capacity"] / 100, 3)))
+
     db.commit()
-    db.refresh(reading)
-    return schemas.CheckinOut(
-        stress_score=stress_score,
-        stress_score_display=round(stress_score * 100),
-        reading=reading,
+    db.refresh(checkin)
+    return checkin
+
+
+@app.get("/checkin/latest", response_model=schemas.CheckinOut)
+def latest_checkin(db: Session = Depends(get_db)):
+    checkin = db.query(models.Checkin).order_by(models.Checkin.created_at.desc()).first()
+    if checkin is None:
+        raise HTTPException(status_code=404, detail="No check-in yet")
+    return checkin
+
+
+@app.get("/capacity/forecast", response_model=schemas.CapacityForecast)
+def capacity_forecast(days: int = capforecast.WINDOW_DAYS, db: Session = Depends(get_db)):
+    since = datetime.datetime.utcnow() - datetime.timedelta(days=days)
+    checkins = (
+        db.query(models.Checkin)
+        .filter(models.Checkin.created_at >= since)
+        .order_by(models.Checkin.created_at)
+        .all()
     )
+    return schemas.CapacityForecast(**capforecast.analyze(checkins))
+
+
+@app.get("/capacity/outlook", response_model=schemas.CapacityOutlook)
+def capacity_outlook(db: Session = Depends(get_db)):
+    """Prediction view for Understand Me: the causes behind a persistent low state and the
+    likely consequences if the pattern continues (supportive, non-clinical)."""
+    return schemas.CapacityOutlook(**outlook.analyze(db))
+
+
+@app.get("/recharge/today", response_model=list[schemas.RechargeActionOut])
+def recharge_today(db: Session = Depends(get_db)):
+    latest = db.query(models.Checkin).order_by(models.Checkin.created_at.desc()).first()
+    driver = latest.main_driver if latest else None
+    return [recharge.to_dict(a) for a in recharge.actions_for_today(db, driver)]
+
+
+@app.post("/recharge/{action_id}/status", response_model=schemas.RechargeActionOut)
+def set_recharge_status(action_id: int, body: schemas.RechargeStatusUpdate, db: Session = Depends(get_db)):
+    action = db.query(models.RechargeAction).filter(models.RechargeAction.id == action_id).first()
+    if action is None:
+        raise HTTPException(status_code=404, detail="Action not found")
+    action.status = body.status
+    action.completed_at = datetime.datetime.utcnow() if body.status == "done" else None
+    db.commit()
+    db.refresh(action)
+    return recharge.to_dict(action)
+
+
+@app.get("/progress", response_model=schemas.ProgressOut)
+def progress_evidence(db: Session = Depends(get_db)):
+    return schemas.ProgressOut(**capprogress.build(db))
+
+
+@app.get("/companion/opening", response_model=schemas.OpeningLine)
+def companion_opening(db: Session = Depends(get_db)):
+    line, source = companion.opening_line(db)
+    return schemas.OpeningLine(opening=line, source=source)
 
 
 # ---------------------------------------------------------------------------

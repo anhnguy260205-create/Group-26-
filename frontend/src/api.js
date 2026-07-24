@@ -18,6 +18,9 @@ export const api = {
   createTask: (task) => request('/tasks', { method: 'POST', body: JSON.stringify(task) }),
   toggleTask: (id) => request(`/tasks/${id}/toggle`, { method: 'POST' }),
   deleteTask: (id) => request(`/tasks/${id}`, { method: 'DELETE' }),
+  assignTask: (id, assigned_to) =>
+    request(`/tasks/${id}/assign`, { method: 'POST', body: JSON.stringify({ assigned_to }) }),
+  suggestDelegation: () => request('/delegation/suggest'),
 
   ingestStress: (reading) => request('/stress', { method: 'POST', body: JSON.stringify(reading) }),
   listStress: (limit = 100) => request(`/stress?limit=${limit}`),
@@ -32,6 +35,14 @@ export const api = {
   generateReflection: (sessionId) => request(`/reflection/${sessionId}`, { method: 'POST' }),
 
   submitCheckin: (checkin) => request('/checkin', { method: 'POST', body: JSON.stringify(checkin) }),
+  latestCheckin: () => request('/checkin/latest'),
+  capacityForecast: (days = 14) => request(`/capacity/forecast?days=${days}`),
+  capacityOutlook: () => request('/capacity/outlook'),
+  rechargeToday: () => request('/recharge/today'),
+  setRechargeStatus: (id, status) =>
+    request(`/recharge/${id}/status`, { method: 'POST', body: JSON.stringify({ status }) }),
+  progress: () => request('/progress'),
+  companionOpening: () => request('/companion/opening'),
   stressTrends: (days = 7) => request(`/stress/trends?days=${days}`),
   burnoutRisk: (days = 7) => request(`/stress/burnout-risk?days=${days}`),
   stressForecast: (days = 3) => request(`/stress/forecast?days=${days}`),

@@ -7,6 +7,8 @@ so a flaky network can't cause a missed or spurious intervention mid-demo.
 """
 
 import datetime
+import json
+import re
 from dataclasses import dataclass
 from typing import Literal
 
@@ -83,6 +85,196 @@ def checkin_to_stress_score(
     return round(
         min(0.35 * mood_score + 0.25 * sleep_score + 0.25 * care_score + me_time_penalty, 1.0), 3
     )
+
+
+# ---------------------------------------------------------------------------
+# Facial-expression -> stress (background camera enrichment)
+# ---------------------------------------------------------------------------
+
+EXPRESSION_STRESS_WEIGHTS = {
+    "neutral": 0.3,
+    "happy": 0.0,
+    "sad": 0.65,
+    "angry": 0.85,
+    "fearful": 0.8,
+    "disgusted": 0.55,
+    "surprised": 0.35,
+}
+
+
+def expression_to_stress_score(expression: dict) -> float:
+    """expression: {name: 0-1 probability}. Weighted average -> 0-1 stress."""
+    total = sum(
+        EXPRESSION_STRESS_WEIGHTS[name] * float(expression.get(name, 0.0))
+        for name in EXPRESSION_STRESS_WEIGHTS
+    )
+    return round(max(0.0, min(total, 1.0)), 3)
+
+
+# ---------------------------------------------------------------------------
+# Daily Check-in -> Capacity score
+#
+# Capacity = how much the caregiver has left in the tank (0-100, higher is better). Five
+# 0-10 sliders (mood/sleep/energy/night_care/free_time) plus an optional fused facial
+# reading. night_care is a burden, scored on its relief (10 - value).
+# ---------------------------------------------------------------------------
+
+CAPACITY_WEIGHTS = {
+    "mood": 0.25,
+    "energy": 0.25,
+    "sleep": 0.20,
+    "night_care": 0.15,
+    "free_time": 0.15,
+}
+
+FACE_WEIGHT = 0.20
+FACE_FRESH_SECONDS = 600
+
+CAPACITY_LABELS = {
+    "mood": "Mood",
+    "energy": "Energy",
+    "sleep": "Sleep",
+    "night_care": "Night Care",
+    "free_time": "Free Time",
+    "face": "Facial Signs",
+}
+
+
+def _effective_weights(has_face: bool) -> dict[str, float]:
+    if not has_face:
+        return dict(CAPACITY_WEIGHTS)
+    scale = 1.0 - FACE_WEIGHT
+    weights = {k: v * scale for k, v in CAPACITY_WEIGHTS.items()}
+    weights["face"] = FACE_WEIGHT
+    return weights
+
+
+def _capacity_goodness(mood, sleep, energy, night_care, free_time) -> dict[str, float]:
+    return {
+        "mood": float(mood),
+        "energy": float(energy),
+        "sleep": float(sleep),
+        "night_care": float(10 - night_care),
+        "free_time": float(free_time),
+    }
+
+
+def compute_capacity_rule(
+    mood: int, sleep: int, energy: int, night_care: int, free_time: int, face_stress: float | None = None
+) -> tuple[int, str, str]:
+    """Offline fallback. Returns (capacity 0-100, main_driver_key, reason)."""
+    goodness = _capacity_goodness(mood, sleep, energy, night_care, free_time)
+    if face_stress is not None:
+        goodness["face"] = (1.0 - face_stress) * 10.0
+    weights = _effective_weights(face_stress is not None)
+    weighted = sum(weights[k] * goodness[k] for k in weights)
+    capacity = round(weighted * 10)
+    deficits = {k: weights[k] * (10 - goodness[k]) for k in weights}
+    main_key = max(deficits, key=deficits.get)
+    return capacity, main_key, _capacity_rule_reason(main_key, capacity)
+
+
+def _capacity_rule_reason(main_key: str, capacity: int) -> str:
+    label = CAPACITY_LABELS[main_key]
+    band = "running low" if capacity < 40 else "holding steady" if capacity < 70 else "in a good place"
+    phrases = {
+        "mood": "how heavy today has felt is what's weighing on you most",
+        "energy": "low energy is the biggest drain on you right now",
+        "sleep": "not enough rest is the main thing pulling your capacity down",
+        "night_care": "the nighttime caregiving load is what's taking the most out of you",
+        "free_time": "having little time to yourself is the biggest squeeze right now",
+        "face": "your face is reading as tense right now, more than anything you reported",
+    }
+    return f"Your capacity is {band}, and {phrases[main_key]} (main driver: {label})."
+
+
+CAPACITY_SYSTEM_PROMPT = (
+    "You gauge a family caregiver's remaining capacity for a support app. You are not a "
+    "clinician and never diagnose. You read a short journal entry, five 0-10 self-report "
+    "sliders, and sometimes a live facial-tension reading. Return ONLY a JSON object, no "
+    "other text, in exactly this shape: "
+    '{"capacity": <0-100 int>, '
+    '"main_driver": "<one of: Mood, Energy, Sleep, Night Care, Free Time, Facial Signs>", '
+    '"reason": "<two or three warm, plain sentences to the caregiver, no numbers>"}. '
+    "Capacity = how much they have left in the tank (100 = full, 0 = empty). Weigh the "
+    "journal tone alongside the sliders, and the facial reading when provided. Only pick "
+    "'Facial Signs' if a facial reading is provided AND it clearly disagrees with what they "
+    "reported. Keep the reason specific to what they wrote."
+)
+
+
+def _extract_json(text: str) -> dict | None:
+    match = re.search(r"\{.*\}", text, re.DOTALL)
+    if not match:
+        return None
+    try:
+        return json.loads(match.group(0))
+    except ValueError:
+        return None
+
+
+def _normalize_driver(value: str) -> str | None:
+    if not value:
+        return None
+    cleaned = value.strip().lower().replace("_", " ")
+    for key, label in CAPACITY_LABELS.items():
+        if cleaned == label.lower() or cleaned == key.replace("_", " "):
+            return label
+    return None
+
+
+def compute_capacity(
+    journal: str, mood: int, sleep: int, energy: int, night_care: int, free_time: int,
+    face_stress: float | None = None,
+) -> dict:
+    """Capacity + main driver + reason. LLM (journal/face-aware) with rule fallback."""
+    rule_capacity, rule_key, rule_reason = compute_capacity_rule(
+        mood, sleep, energy, night_care, free_time, face_stress
+    )
+    rule_label = CAPACITY_LABELS[rule_key]
+
+    journal_text = (journal or "").strip() or "(no journal written today)"
+    face_line = (
+        f" Live facial-tension reading: {face_stress:.2f}/1.0 (0 = calm, 1 = very tense)."
+        if face_stress is not None
+        else " No facial reading available."
+    )
+    prompt = (
+        f"Journal entry:\n{journal_text}\n\n"
+        f"Sliders (0-10): Mood={mood}, Sleep={sleep}, Energy={energy}, "
+        f"Night Care burden={night_care}, Free Time={free_time}.{face_line}"
+    )
+    result = llm.complete(system=CAPACITY_SYSTEM_PROMPT, prompt=prompt, max_tokens=600)
+    if result:
+        text, provider = result
+        parsed = _extract_json(text)
+        if parsed:
+            capacity = parsed.get("capacity")
+            try:
+                capacity = max(0, min(int(round(float(capacity))), 100))
+            except (TypeError, ValueError):
+                capacity = rule_capacity
+            driver = _normalize_driver(str(parsed.get("main_driver", ""))) or rule_label
+            reason = str(parsed.get("reason") or "").strip() or rule_reason
+            return {"capacity": capacity, "main_driver": driver, "reason": reason, "source": provider}
+
+    return {"capacity": rule_capacity, "main_driver": rule_label, "reason": rule_reason, "source": "rule"}
+
+
+def latest_face_stress(db: Session, now: datetime.datetime | None = None) -> float | None:
+    """Most recent facial-expression stress score, only if fresh enough to reflect now."""
+    now = now or datetime.datetime.utcnow()
+    reading = (
+        db.query(models.StressReading)
+        .filter(models.StressReading.source == "expression")
+        .order_by(models.StressReading.created_at.desc())
+        .first()
+    )
+    if reading is None:
+        return None
+    if (now - reading.created_at) > datetime.timedelta(seconds=FACE_FRESH_SECONDS):
+        return None
+    return reading.stress_score
 
 
 def burnout_risk_level(recent_scores: list[float]) -> Literal["low", "moderate", "high"]:
