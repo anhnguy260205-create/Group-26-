@@ -1,17 +1,13 @@
 .app {
   text-align: left;
-  padding: 24px 32px 48px;
+  padding: 28px 32px 56px;
   display: flex;
   flex-direction: column;
   gap: 24px;
 }
 
-.app-header h1 {
-  margin: 0;
-}
-
 .app-tagline {
-  color: var(--text);
+  color: var(--ink-soft);
   font-style: italic;
   margin-top: 4px;
 }
@@ -23,39 +19,63 @@
   align-items: center;
   gap: 10px;
   padding: 8px 14px;
-  border: 1px solid var(--border);
+  background: var(--card);
+  border: 1px solid var(--line);
   border-radius: 999px;
   width: fit-content;
   font-size: 14px;
+  color: var(--ink-soft);
 }
 
 .dot {
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  background: var(--border);
+  background: var(--line);
   flex-shrink: 0;
 }
-.dot-active {
-  background: #34d399;
-  box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.2);
-  animation: pulse 2s infinite;
+/* Presence dot: color reflects the AI's current read on stress, not connection status. */
+.dot-calm {
+  background: var(--moss);
+  box-shadow: 0 0 0 4px var(--moss-light);
+  animation: pulse 2.6s ease-in-out infinite;
 }
+.dot-elevated {
+  background: var(--amber);
+  box-shadow: 0 0 0 4px var(--amber-light);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+.dot-sensing,
 .dot-starting {
-  background: #fbbf24;
-}
-.dot-manual-fallback {
-  background: var(--accent);
+  background: var(--ink-soft);
+  animation: pulse 1.6s ease-in-out infinite;
 }
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.4; }
 }
 
+.stress-meter {
+  width: 72px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--moss-light);
+  overflow: hidden;
+}
+.stress-meter-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--moss);
+  transition: width 0.6s ease, background 0.6s ease;
+}
+.stress-meter-fill.elevated {
+  background: var(--amber);
+}
+
 .link-button {
   background: none;
   border: none;
-  color: var(--accent);
+  color: var(--moss);
   cursor: pointer;
   font: inherit;
   padding: 0;
@@ -64,31 +84,48 @@
 
 .manual-checkin {
   margin-top: 8px;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  padding: 14px 16px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
   max-width: 420px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   font-size: 14px;
+  color: var(--ink);
 }
 .manual-checkin input[type='range'] {
   width: 100%;
+  accent-color: var(--moss);
 }
 .manual-checkin-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  color: var(--ink-soft);
+}
+.manual-checkin-row button {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: none;
+  background: var(--moss);
+  color: var(--card);
+  font: inherit;
+  cursor: pointer;
 }
 
 /* ---- Dashboard ---- */
+
+.dashboard h1 {
+  color: var(--ink);
+}
 
 .task-form {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
-  margin-bottom: 24px;
+  margin: 20px 0 24px;
 }
 .task-form input[type='text'] {
   flex: 1 1 240px;
@@ -96,18 +133,19 @@
 .task-form input,
 .task-form select,
 .task-form button {
-  padding: 8px 10px;
-  border: 1px solid var(--border);
+  padding: 9px 12px;
+  border: 1px solid var(--line);
   border-radius: 6px;
-  background: var(--bg);
-  color: var(--text-h);
+  background: var(--card);
+  color: var(--ink);
   font: inherit;
 }
 .task-form button {
-  background: var(--accent);
-  color: white;
+  background: var(--moss);
+  color: var(--card);
   border-color: transparent;
   cursor: pointer;
+  font-weight: 500;
 }
 
 .task-list {
@@ -116,21 +154,18 @@
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .task-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-left: 4px solid var(--border);
-  border-radius: 6px;
+  padding: 12px 14px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 8px;
 }
-.task-item.kind-medication { border-left-color: #f87171; }
-.task-item.kind-appointment { border-left-color: #60a5fa; }
-.task-item.kind-todo { border-left-color: #34d399; }
 
 .task-item label {
   display: flex;
@@ -138,25 +173,44 @@
   gap: 10px;
   cursor: pointer;
 }
+.task-item input[type='checkbox'] {
+  accent-color: var(--moss);
+  width: 16px;
+  height: 16px;
+}
 .task-kind {
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--text);
-  background: var(--code-bg);
-  padding: 2px 6px;
+  color: var(--ink-soft);
+  background: var(--paper);
+  padding: 3px 7px;
   border-radius: 4px;
+}
+.due-tag {
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-weight: 500;
+}
+.due-tag-overdue {
+  background: var(--amber-light);
+  color: var(--amber);
+}
+.due-tag-upcoming {
+  background: var(--moss-light);
+  color: var(--moss);
 }
 .task-due {
   font-size: 13px;
-  color: var(--text);
+  color: var(--ink-soft);
 }
 .task-list.done .task-title {
   text-decoration: line-through;
-  color: var(--text);
+  color: var(--ink-soft);
 }
 .empty {
-  color: var(--text);
+  color: var(--ink-soft);
 }
 
 /* ---- Intervention overlay ---- */
@@ -164,7 +218,8 @@
 .intervention-overlay {
   position: fixed;
   inset: 0;
-  background: var(--bg);
+  background:
+    radial-gradient(circle at 50% 35%, var(--plum-light) 0%, var(--paper) 65%);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -177,27 +232,41 @@
 
 .intervention-reasoning {
   max-width: 480px;
-  color: var(--text);
+  color: var(--ink-soft);
+}
+
+.breathing-ring {
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  background: var(--plum-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .breathing-circle {
   width: 140px;
   height: 140px;
   border-radius: 50%;
-  background: var(--accent-bg);
-  border: 2px solid var(--accent);
+  background: var(--card);
+  border: 2px solid var(--plum);
   transition-property: transform;
   transition-timing-function: ease-in-out;
 }
 
 .breathing-phase {
   font-size: 24px;
-  font-weight: 500;
-  color: var(--text-h);
+  font-weight: 600;
+  color: var(--ink);
 }
 
 .breathing-guidance {
-  color: var(--text);
+  color: var(--ink-soft);
+}
+
+.intervention-overlay .link-button {
+  color: var(--plum);
 }
 
 /* ---- Reflection overlay ---- */
@@ -205,7 +274,7 @@
 .reflection-overlay {
   position: fixed;
   inset: 0;
-  background: var(--bg);
+  background: var(--paper);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -216,21 +285,25 @@
   text-align: center;
 }
 
+.reflection-overlay h2 {
+  color: var(--plum);
+}
+
 .reflection-message {
   max-width: 480px;
   font-size: 18px;
-  line-height: 150%;
-  color: var(--text-h);
+  line-height: 155%;
+  color: var(--ink);
 }
 
-.reflection-overlay button,
-.intervention-overlay > button {
-  padding: 10px 20px;
+.reflection-overlay button {
+  padding: 11px 22px;
   border-radius: 6px;
   border: none;
-  background: var(--accent);
-  color: white;
+  background: var(--moss);
+  color: var(--card);
   font: inherit;
+  font-weight: 500;
   cursor: pointer;
 }
 .reflection-overlay button:disabled {

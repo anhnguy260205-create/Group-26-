@@ -96,13 +96,14 @@ def _explain(
         "In one short, warm sentence (no more than 25 words), explain why this reading "
         "matters, addressed gently to the caregiver. Do not mention numbers or scores."
     )
-    text = llm.complete(
+    result = llm.complete(
         system="You are a calm, brief clinical-empathy assistant for a caregiver support app.",
         prompt=prompt,
         max_tokens=80,
     )
-    if text:
-        return text, "llm"
+    if result:
+        text, provider = result
+        return text, provider
 
     if intervene:
         return (

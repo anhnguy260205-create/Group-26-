@@ -14,7 +14,7 @@ def generate(session: models.CareSession) -> tuple[str, str]:
         "Write a warm, brief (2-3 sentences) closing reflection. Acknowledge the effort of "
         "pausing, not just the outcome. Do not mention numbers or scores. No exclamation points."
     )
-    text = llm.complete(
+    result = llm.complete(
         system=(
             "You are a gentle, grounded companion for caregivers. You never sound clinical "
             "or performative. You close the loop after a recovery session with warmth."
@@ -22,8 +22,9 @@ def generate(session: models.CareSession) -> tuple[str, str]:
         prompt=prompt,
         max_tokens=150,
     )
-    if text:
-        return text, "llm"
+    if result:
+        text, provider = result
+        return text, provider
 
     if improved:
         message = (

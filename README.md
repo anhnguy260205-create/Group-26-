@@ -21,9 +21,21 @@ uvicorn app.main:app --reload
 
 API runs at http://127.0.0.1:8000, docs at http://127.0.0.1:8000/docs. Uses SQLite (`backend/app.db`, auto-created).
 
-Optional: set `ANTHROPIC_API_KEY` in the environment to have the burnout reasoning and
-closing reflection phrased by Claude instead of the built-in templated text. Everything
-works with it unset — the app never depends on the LLM being reachable.
+Optional: the burnout reasoning and closing reflection can be phrased by an LLM instead of
+the built-in templated text. `backend/app/llm.py` tries providers in order and falls back
+to templates if none are configured or reachable — the app never depends on an LLM being up:
+
+1. **Microsoft Foundry** — set `FOUNDRY_ENDPOINT` (the full chat-completions URL from the
+   deployment's "Consume" tab in the Foundry portal) and `FOUNDRY_API_KEY`. Set
+   `FOUNDRY_MODEL` too if your endpoint is a unified multi-model one that requires a
+   `model` field in the request body.
+2. **Anthropic** — set `ANTHROPIC_API_KEY` to fall back to Claude directly if Foundry
+   isn't configured or a call to it fails.
+
+Every LLM-backed response reports which provider actually answered — `GET
+/threshold/check` returns `reasoning_source` (`"foundry"` / `"anthropic"` / `"rule"`) and
+reflections carry `generated_by` (`"foundry"` / `"anthropic"` / `"template"`) — so you can
+show at the demo that Foundry is genuinely in the loop, not just configured.
 
 ## Frontend
 

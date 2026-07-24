@@ -8,6 +8,11 @@ function formatDue(due_at) {
   return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 }
 
+function dueStatus(task) {
+  if (!task.due_at || task.done) return null
+  return new Date(task.due_at) < new Date() ? 'overdue' : 'upcoming'
+}
+
 export function Dashboard({ tasks, onCreateTask, onToggleTask, onDeleteTask }) {
   const [title, setTitle] = useState('')
   const [kind, setKind] = useState('todo')
@@ -48,19 +53,27 @@ export function Dashboard({ tasks, onCreateTask, onToggleTask, onDeleteTask }) {
         <h2>Today ({pending.length})</h2>
         {pending.length === 0 && <p className="empty">Nothing pending — nice.</p>}
         <ul className="task-list">
-          {pending.map((task) => (
-            <li key={task.id} className={`task-item kind-${task.kind}`}>
-              <label>
-                <input type="checkbox" checked={task.done} onChange={() => onToggleTask(task.id)} />
-                <span className="task-kind">{KIND_LABEL[task.kind]}</span>
-                <span className="task-title">{task.title}</span>
-                {task.due_at && <span className="task-due">{formatDue(task.due_at)}</span>}
-              </label>
-              <button type="button" className="link-button" onClick={() => onDeleteTask(task.id)}>
-                remove
-              </button>
-            </li>
-          ))}
+          {pending.map((task) => {
+            const status = dueStatus(task)
+            return (
+              <li key={task.id} className="task-item">
+                <label>
+                  <input type="checkbox" checked={task.done} onChange={() => onToggleTask(task.id)} />
+                  <span className="task-kind">{KIND_LABEL[task.kind]}</span>
+                  <span className="task-title">{task.title}</span>
+                  {task.due_at && <span className="task-due">{formatDue(task.due_at)}</span>}
+                  {status && (
+                    <span className={`due-tag due-tag-${status}`}>
+                      {status === 'overdue' ? 'Overdue' : 'Upcoming'}
+                    </span>
+                  )}
+                </label>
+                <button type="button" className="link-button" onClick={() => onDeleteTask(task.id)}>
+                  remove
+                </button>
+              </li>
+            )
+          })}
         </ul>
       </section>
 

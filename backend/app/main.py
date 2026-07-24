@@ -1,11 +1,14 @@
 import datetime
 
+from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 from . import models, reflection, schemas, scoring
 from .database import Base, engine, get_db
+
+load_dotenv()
 
 Base.metadata.create_all(bind=engine)
 

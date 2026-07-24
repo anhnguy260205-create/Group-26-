@@ -1,5 +1,22 @@
+const ELEVATED_STRESS_SCORE = 0.6
+
 export function StressMonitor({ monitor, enabled, onToggleEnabled }) {
   const { status, latest, manualValue, setManualValue, submitManual, videoRef, canvasRef } = monitor
+
+  const stressScore = latest?.stress_score
+  const elevated = stressScore != null && stressScore >= ELEVATED_STRESS_SCORE
+
+  // The dot's color is the AI's read on the caregiver right now — moss at rest, amber elevated —
+  // separate from whether sensing itself is active/starting/paused.
+  const dotState = !enabled
+    ? 'idle'
+    : status === 'starting'
+      ? 'starting'
+      : stressScore == null
+        ? 'sensing'
+        : elevated
+          ? 'elevated'
+          : 'calm'
 
   return (
     <div className="stress-monitor">
@@ -8,7 +25,7 @@ export function StressMonitor({ monitor, enabled, onToggleEnabled }) {
       <canvas ref={canvasRef} width={60} height={60} style={{ display: 'none' }} />
 
       <div className="stress-monitor-badge">
-        <span className={`dot dot-${enabled ? status : 'idle'}`} />
+        <span className={`dot dot-${dotState}`} />
         <span className="stress-monitor-label">
           {!enabled && 'Wellness sensing paused'}
           {enabled && status === 'starting' && 'Wellness sensing starting…'}
@@ -21,6 +38,14 @@ export function StressMonitor({ monitor, enabled, onToggleEnabled }) {
           {enabled && status === 'manual-fallback' && 'Wellness sensing: manual check-in'}
           {enabled && status === 'idle' && 'Wellness sensing off'}
         </span>
+        {enabled && stressScore != null && (
+          <span className="stress-meter" title={`Stress level: ${Math.round(stressScore * 100)}%`}>
+            <span
+              className={`stress-meter-fill${elevated ? ' elevated' : ''}`}
+              style={{ width: `${Math.round(stressScore * 100)}%` }}
+            />
+          </span>
+        )}
         <button type="button" className="link-button" onClick={onToggleEnabled}>
           {enabled ? 'Pause' : 'Resume'}
         </button>

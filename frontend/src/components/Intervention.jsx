@@ -81,10 +81,12 @@ export function Intervention({ sessionId, triggerReasoning, latestStressScore, o
   return (
     <div className="intervention-overlay">
       <p className="intervention-reasoning">{triggerReasoning}</p>
-      <div
-        className="breathing-circle"
-        style={{ transform: `scale(${scale})`, transitionDuration: `${duration}s` }}
-      />
+      <div className="breathing-ring">
+        <div
+          className="breathing-circle"
+          style={{ transform: `scale(${scale})`, transitionDuration: `${duration}s` }}
+        />
+      </div>
       <p className="breathing-phase">{PHASE_LABEL[phase]}</p>
       <p className="breathing-guidance">{pace.guidance}</p>
       <button type="button" className="link-button" onClick={finish}>

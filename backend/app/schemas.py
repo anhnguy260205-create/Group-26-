@@ -58,7 +58,7 @@ class ThresholdResult(BaseModel):
     behavioral_score: float
     physiological_score: float
     reasoning: str
-    reasoning_source: Literal["llm", "rule"]
+    reasoning_source: Literal["foundry", "anthropic", "rule"]
 
 
 # ---- Care session / intervention ----
