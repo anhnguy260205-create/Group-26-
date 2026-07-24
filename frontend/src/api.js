@@ -18,6 +18,8 @@ export const api = {
   createTask: (task) => request('/tasks', { method: 'POST', body: JSON.stringify(task) }),
   toggleTask: (id) => request(`/tasks/${id}/toggle`, { method: 'POST' }),
   deleteTask: (id) => request(`/tasks/${id}`, { method: 'DELETE' }),
+  assignTask: (id, assigned_to) =>
+    request(`/tasks/${id}/assign`, { method: 'POST', body: JSON.stringify({ assigned_to }) }),
 
   ingestStress: (reading) => request('/stress', { method: 'POST', body: JSON.stringify(reading) }),
   listStress: (limit = 100) => request(`/stress?limit=${limit}`),
@@ -32,6 +34,8 @@ export const api = {
   generateReflection: (sessionId) => request(`/reflection/${sessionId}`, { method: 'POST' }),
 
   submitCheckin: (checkin) => request('/checkin', { method: 'POST', body: JSON.stringify(checkin) }),
+  latestCheckin: () => request('/checkin/latest'),
+  capacityForecast: (days = 14) => request(`/capacity/forecast?days=${days}`),
   stressTrends: (days = 7) => request(`/stress/trends?days=${days}`),
   burnoutRisk: (days = 7) => request(`/stress/burnout-risk?days=${days}`),
 
@@ -42,6 +46,14 @@ export const api = {
 
   companionChat: (content) => request('/companion/chat', { method: 'POST', body: JSON.stringify({ content }) }),
   companionMessages: (limit = 50) => request(`/companion/messages?limit=${limit}`),
+  companionOpening: () => request('/companion/opening'),
+
+  rechargeToday: () => request('/recharge/today'),
+  setRechargeStatus: (id, status) =>
+    request(`/recharge/${id}/status`, { method: 'POST', body: JSON.stringify({ status }) }),
+
+  progress: () => request('/progress'),
+  suggestDelegation: () => request('/delegation/suggest'),
 
   listResources: (region) => request(`/resources${region ? `?region=${encodeURIComponent(region)}` : ''}`),
 }

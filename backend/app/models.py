@@ -84,6 +84,42 @@ class JournalEntry(Base):
     created_at = Column(DateTime, nullable=False, default=utcnow)
 
 
+class Checkin(Base):
+    """A Daily Check-in: a journal line + five 0-10 sliders, scored into a Capacity
+    reading (0-100, higher = more in the tank) with its main driver and a reason."""
+
+    __tablename__ = "checkins"
+
+    id = Column(Integer, primary_key=True, index=True)
+    journal = Column(String(500), nullable=True)
+    mood = Column(Integer, nullable=False)  # 0-10
+    sleep = Column(Integer, nullable=False)  # 0-10
+    energy = Column(Integer, nullable=False)  # 0-10
+    night_care = Column(Integer, nullable=False)  # 0-10 (burden)
+    free_time = Column(Integer, nullable=False)  # 0-10
+    face_stress = Column(Float, nullable=True)  # 0-1 fused facial-tension reading at check-in, if fresh
+    capacity_score = Column(Integer, nullable=False)  # 0-100
+    main_driver = Column(String(32), nullable=False)  # Mood | Energy | Sleep | Night Care | Free Time | Facial Signs
+    reason = Column(String(1024), nullable=False)
+    source = Column(String(16), nullable=False, default="rule")  # foundry | anthropic | rule
+    created_at = Column(DateTime, nullable=False, default=utcnow)
+
+
+class RechargeAction(Base):
+    """A recommended recovery action (breathing / walk / early night), suggested from the
+    day's capacity main driver. The caregiver marks it Done or Skipped; Progress reads the
+    Done ones the next day to show evidence that recharging helped."""
+
+    __tablename__ = "recharge_actions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    kind = Column(String(32), nullable=False)  # breathing | walk | sleep_early
+    driver = Column(String(32), nullable=True)  # the main_driver that prompted it
+    status = Column(String(16), nullable=False, default="pending")  # pending | done | skipped
+    created_at = Column(DateTime, nullable=False, default=utcnow)
+    completed_at = Column(DateTime, nullable=True)
+
+
 class ChatMessage(Base):
     """A single message in the caregiver's ongoing AI Companion thread (one thread, no rooms)."""
 

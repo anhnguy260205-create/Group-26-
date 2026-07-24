@@ -14,11 +14,11 @@ const POST_SESSION_COOLDOWN_MS = 90000
 
 const NAV_ITEMS = [
   { to: '/', label: 'Home', end: true },
-  { to: '/checkin', label: 'Daily Check-in' },
-  { to: '/companion', label: 'AI Companion' },
-  { to: '/journal', label: 'Journal' },
-  { to: '/burnout', label: 'Burnout Dashboard' },
-  { to: '/resources', label: 'Resource Finder' },
+  { to: '/checkin', label: 'Check-in' },
+  { to: '/understand-me', label: 'Understand Me' },
+  { to: '/companion', label: 'AI Copilot' },
+  { to: '/progress', label: 'Progress' },
+  { to: '/me', label: 'Me' },
 ]
 
 export function Layout() {

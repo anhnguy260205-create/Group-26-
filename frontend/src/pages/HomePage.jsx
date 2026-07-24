@@ -1,39 +1,50 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { api } from '../api'
-import { Dashboard } from '../components/Dashboard'
+import { CapacitySection } from '../components/CapacitySection'
+import { CoordinateCard } from '../components/CoordinateCard'
+import { ForecastSection } from '../components/ForecastSection'
+import { RechargeCard } from '../components/RechargeCard'
+import { WhySection } from '../components/WhySection'
+import { YesterdayProgress } from '../components/YesterdayProgress'
 
+// Home = the single-page flow:
+// Capacity -> Forecast -> Why -> Recharge & Reconnect -> Coordinate -> Yesterday's improvement.
 export function HomePage() {
-  const [tasks, setTasks] = useState([])
-
-  const refreshTasks = useCallback(() => {
-    api.listTasks().then(setTasks).catch(() => {})
-  }, [])
+  const [checkin, setCheckin] = useState(null)
+  const [state, setState] = useState('loading') // loading | ready | empty
 
   useEffect(() => {
-    refreshTasks()
-  }, [refreshTasks])
-
-  async function handleCreateTask(task) {
-    const created = await api.createTask(task)
-    setTasks((prev) => [...prev, created])
-  }
-
-  async function handleToggleTask(id) {
-    const updated = await api.toggleTask(id)
-    setTasks((prev) => prev.map((t) => (t.id === id ? updated : t)))
-  }
-
-  async function handleDeleteTask(id) {
-    await api.deleteTask(id)
-    setTasks((prev) => prev.filter((t) => t.id !== id))
-  }
+    api
+      .latestCheckin()
+      .then((data) => {
+        setCheckin(data)
+        setState('ready')
+      })
+      .catch(() => setState('empty'))
+  }, [])
 
   return (
-    <Dashboard
-      tasks={tasks}
-      onCreateTask={handleCreateTask}
-      onToggleTask={handleToggleTask}
-      onDeleteTask={handleDeleteTask}
-    />
+    <div className="page home-page">
+      <h1>Today</h1>
+
+      {state === 'empty' && (
+        <p className="empty">
+          Start with a <Link to="/checkin">Daily Check-in</Link> — your capacity, forecast, and
+          recovery plan build from it.
+        </p>
+      )}
+
+      {state === 'ready' && (
+        <>
+          <CapacitySection checkin={checkin} />
+          <ForecastSection />
+          <WhySection checkin={checkin} />
+          <RechargeCard />
+          <CoordinateCard />
+          <YesterdayProgress />
+        </>
+      )}
+    </div>
   )
 }
