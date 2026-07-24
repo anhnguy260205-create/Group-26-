@@ -92,6 +92,27 @@ class StressTrendPoint(BaseModel):
     count: int
 
 
+# ---- Digital Twin: predictive stress forecast ----
+
+
+class StressForecastPoint(BaseModel):
+    date: datetime.date
+    predicted_score: float  # 0-1
+    predicted_display: int  # 0-100, for UI
+    lower: float  # confidence band, 0-1
+    upper: float
+
+
+class StressForecast(BaseModel):
+    horizon_days: int
+    days_of_history: int
+    trend: Literal["rising", "falling", "steady"]
+    points: list[StressForecastPoint]
+    main_driver: Optional[str] = None  # e.g. "long caregiving hours"
+    narrative: str
+    narrative_source: Literal["foundry", "anthropic", "template"]
+
+
 # ---- Threshold / AI brain ----
 
 

@@ -38,6 +38,10 @@ export const api = {
   capacityForecast: (days = 14) => request(`/capacity/forecast?days=${days}`),
   stressTrends: (days = 7) => request(`/stress/trends?days=${days}`),
   burnoutRisk: (days = 7) => request(`/stress/burnout-risk?days=${days}`),
+  stressForecast: (days = 3) => request(`/stress/forecast?days=${days}`),
+  weeklySummary: () => request('/summary/weekly'),
+  dailySuggestions: () => request('/suggestions/daily'),
+  analyzeEmotion: (text) => request('/emotion', { method: 'POST', body: JSON.stringify({ text }) }),
 
   listJournal: (limit = 50) => request(`/journal?limit=${limit}`),
   createJournalEntry: (entry) => request('/journal', { method: 'POST', body: JSON.stringify(entry) }),

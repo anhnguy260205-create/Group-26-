@@ -44,6 +44,12 @@ class StressReading(Base):
     expr_disgusted = Column(Float, nullable=True)
     expr_surprised = Column(Float, nullable=True)
     stress_score = Column(Float, nullable=False)  # normalized 0-1, computed at ingest time
+    # Daily Check-in components (set when source == "checkin"), kept so the Digital Twin
+    # and Weekly Summary can name the *driver* of stress, not just the combined score.
+    mood = Column(Integer, nullable=True)  # 1 Good - 4 Barely holding on
+    hours_slept = Column(Float, nullable=True)
+    care_hours = Column(Float, nullable=True)
+    had_me_time = Column(Boolean, nullable=True)
     created_at = Column(DateTime, nullable=False, default=utcnow)
 
 
