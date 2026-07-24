@@ -5,7 +5,7 @@ from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
-from . import delegation, models, reflection, schemas, scoring
+from . import companion, delegation, journal, models, reflection, resources, schemas, scoring
 from .database import Base, engine, get_db
 
 load_dotenv()
@@ -156,6 +156,124 @@ def stress_trends(days: int = 7, db: Session = Depends(get_db)):
         )
         for day, scores in sorted(buckets.items())
     ]
+
+
+@app.get("/stress/burnout-risk", response_model=schemas.BurnoutRisk)
+def burnout_risk(days: int = 7, db: Session = Depends(get_db)):
+    """Current-state risk band from sustained recent patterns — not a forecast."""
+    since = datetime.datetime.utcnow() - datetime.timedelta(days=days)
+    readings = (
+        db.query(models.StressReading)
+        .filter(models.StressReading.created_at >= since)
+        .order_by(models.StressReading.created_at)
+        .all()
+    )
+    scores = [r.stress_score for r in readings]
+    day_count = len({r.created_at.date() for r in readings})
+    level = scoring.burnout_risk_level(scores)
+    return schemas.BurnoutRisk(
+        level=level,
+        avg_stress_score=round(sum(scores) / len(scores), 3) if scores else None,
+        days_of_data=day_count,
+        suggestions=scoring.RISK_SUGGESTIONS[level],
+    )
+
+
+# ---------------------------------------------------------------------------
+# Daily check-in
+# ---------------------------------------------------------------------------
+
+
+@app.post("/checkin", response_model=schemas.CheckinOut)
+def submit_checkin(body: schemas.CheckinCreate, db: Session = Depends(get_db)):
+    stress_score = scoring.checkin_to_stress_score(
+        body.mood, body.hours_slept, body.care_hours, body.had_me_time
+    )
+    reading = models.StressReading(source="checkin", stress_score=stress_score)
+    db.add(reading)
+    db.commit()
+    db.refresh(reading)
+    return schemas.CheckinOut(
+        stress_score=stress_score,
+        stress_score_display=round(stress_score * 100),
+        reading=reading,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Journal
+# ---------------------------------------------------------------------------
+
+
+@app.post("/journal", response_model=schemas.JournalEntryOut)
+def create_journal_entry(body: schemas.JournalEntryCreate, db: Session = Depends(get_db)):
+    entry = models.JournalEntry(text=body.text, mood=body.mood)
+    db.add(entry)
+    db.commit()
+    db.refresh(entry)
+    return entry
+
+
+@app.get("/journal", response_model=list[schemas.JournalEntryOut])
+def list_journal_entries(limit: int = 50, db: Session = Depends(get_db)):
+    return (
+        db.query(models.JournalEntry)
+        .order_by(models.JournalEntry.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+
+@app.get("/journal/summary", response_model=schemas.JournalSummary)
+def journal_summary(db: Session = Depends(get_db)):
+    entries = list(reversed(db.query(models.JournalEntry).order_by(models.JournalEntry.created_at.desc()).limit(journal.SUMMARY_WINDOW).all()))
+    summary, source = journal.generate_summary(entries)
+    return schemas.JournalSummary(summary=summary, source=source, entry_count=len(entries))
+
+
+# ---------------------------------------------------------------------------
+# AI Companion
+# ---------------------------------------------------------------------------
+
+
+@app.post("/companion/chat", response_model=schemas.ChatReply)
+def companion_chat(body: schemas.ChatMessageCreate, db: Session = Depends(get_db)):
+    user_message = models.ChatMessage(role="user", content=body.content)
+    db.add(user_message)
+    db.commit()
+    db.refresh(user_message)
+
+    text, source = companion.reply(db, body.content)
+
+    assistant_message = models.ChatMessage(role="assistant", content=text)
+    db.add(assistant_message)
+    db.commit()
+    db.refresh(assistant_message)
+
+    return schemas.ChatReply(
+        user_message=user_message, assistant_message=assistant_message, source=source
+    )
+
+
+@app.get("/companion/messages", response_model=list[schemas.ChatMessageOut])
+def companion_messages(limit: int = 50, db: Session = Depends(get_db)):
+    rows = (
+        db.query(models.ChatMessage)
+        .order_by(models.ChatMessage.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+    return list(reversed(rows))
+
+
+# ---------------------------------------------------------------------------
+# Resource Finder
+# ---------------------------------------------------------------------------
+
+
+@app.get("/resources", response_model=list[schemas.Resource])
+def get_resources(region: str | None = None):
+    return resources.list_resources(region)
 
 
 # ---------------------------------------------------------------------------

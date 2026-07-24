@@ -30,4 +30,17 @@ export const api = {
     request(`/intervention/${sessionId}/end`, { method: 'POST', body: JSON.stringify(body) }),
 
   generateReflection: (sessionId) => request(`/reflection/${sessionId}`, { method: 'POST' }),
+
+  submitCheckin: (checkin) => request('/checkin', { method: 'POST', body: JSON.stringify(checkin) }),
+  stressTrends: (days = 7) => request(`/stress/trends?days=${days}`),
+  burnoutRisk: (days = 7) => request(`/stress/burnout-risk?days=${days}`),
+
+  listJournal: (limit = 50) => request(`/journal?limit=${limit}`),
+  createJournalEntry: (entry) => request('/journal', { method: 'POST', body: JSON.stringify(entry) }),
+  journalSummary: () => request('/journal/summary'),
+
+  companionChat: (content) => request('/companion/chat', { method: 'POST', body: JSON.stringify({ content }) }),
+  companionMessages: (limit = 50) => request(`/companion/messages?limit=${limit}`),
+
+  listResources: (region) => request(`/resources${region ? `?region=${encodeURIComponent(region)}` : ''}`),
 }

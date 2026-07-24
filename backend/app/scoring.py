@@ -8,6 +8,7 @@ so a flaky network can't cause a missed or spurious intervention mid-demo.
 
 import datetime
 from dataclasses import dataclass
+from typing import Literal
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -68,6 +69,50 @@ def heart_rate_to_stress_score(heart_rate_bpm: float, signal_quality: float | No
 
 def self_report_to_stress_score(level_1_to_10: int) -> float:
     return round(max(0.0, min((level_1_to_10 - 1) / 9.0, 1.0)), 3)
+
+
+def checkin_to_stress_score(
+    mood: int, hours_slept: float, care_hours: float, had_me_time: bool
+) -> float:
+    """Combine the Daily Check-in's answers into a 0-1 stress score.
+    mood is 1 (good) - 4 (barely holding on)."""
+    mood_score = (mood - 1) / 3.0
+    sleep_score = max(0.0, min((8.0 - hours_slept) / 8.0, 1.0))  # 8h = no penalty
+    care_score = min(care_hours / 12.0, 1.0)  # 12h+/day caregiving = maxed out
+    me_time_penalty = 0.0 if had_me_time else 0.15
+    return round(
+        min(0.35 * mood_score + 0.25 * sleep_score + 0.25 * care_score + me_time_penalty, 1.0), 3
+    )
+
+
+def burnout_risk_level(recent_scores: list[float]) -> Literal["low", "moderate", "high"]:
+    """Sustained-pattern risk band from recent daily stress scores — a current-state read,
+    not a forecast. Needs several days of data to mean anything; treats a thin history as low
+    risk rather than over-calling it from one or two data points."""
+    if len(recent_scores) < 3:
+        return "low"
+    avg = sum(recent_scores) / len(recent_scores)
+    if avg >= 0.7:
+        return "high"
+    if avg >= 0.45:
+        return "moderate"
+    return "low"
+
+
+RISK_SUGGESTIONS = {
+    "high": [
+        "Rest for 30 minutes today, even if the to-do list doesn't shrink.",
+        "Ask a relative or friend to cover one caregiving shift this week.",
+        "Consider reaching out to a hospital medical social worker for support options.",
+    ],
+    "moderate": [
+        "Try to protect a short block of time for yourself today.",
+        "Note what's driving the load this week — it may be worth delegating.",
+    ],
+    "low": [
+        "Things look steady — keep doing what's working.",
+    ],
+}
 
 
 def latest_reading(db: Session) -> models.StressReading | None:
@@ -179,8 +224,9 @@ def generate_breathing_guidance(
         "In one caring, short sentence, give ONE breathing instruction. "
         "e.g., 'Exhale for a count of 6' or 'Let's slow down together'."
     )
-    return llm.complete(
+    result = llm.complete(
         system="You are a calm respiratory therapist for burnout prevention.",
         prompt=prompt,
         max_tokens=30,
     )
+    return result[0] if result else None

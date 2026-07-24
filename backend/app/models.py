@@ -63,3 +63,25 @@ class Reflection(Base):
     message = Column(String(2048), nullable=False)
     generated_by = Column(String(16), nullable=False, default="template")  # llm | template
     created_at = Column(DateTime, nullable=False, default=utcnow)
+
+
+class JournalEntry(Base):
+    """One-line daily journal entry, with an optional AI-generated summary of recent entries."""
+
+    __tablename__ = "journal_entries"
+
+    id = Column(Integer, primary_key=True, index=True)
+    text = Column(String(500), nullable=False)
+    mood = Column(Integer, nullable=True)  # 1 (great) - 5 (awful), same scale as check-in
+    created_at = Column(DateTime, nullable=False, default=utcnow)
+
+
+class ChatMessage(Base):
+    """A single message in the caregiver's ongoing AI Companion thread (one thread, no rooms)."""
+
+    __tablename__ = "chat_messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    role = Column(String(16), nullable=False)  # user | assistant
+    content = Column(String(2000), nullable=False)
+    created_at = Column(DateTime, nullable=False, default=utcnow)
