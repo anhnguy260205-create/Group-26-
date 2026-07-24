@@ -38,6 +38,7 @@ export const api = {
   listJournal: (limit = 50) => request(`/journal?limit=${limit}`),
   createJournalEntry: (entry) => request('/journal', { method: 'POST', body: JSON.stringify(entry) }),
   journalSummary: () => request('/journal/summary'),
+  journalEmotions: () => request('/journal/emotions'),
 
   companionChat: (content) => request('/companion/chat', { method: 'POST', body: JSON.stringify({ content }) }),
   companionMessages: (limit = 50) => request(`/companion/messages?limit=${limit}`),

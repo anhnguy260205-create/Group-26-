@@ -29,13 +29,58 @@ function TrendChart({ points }) {
   )
 }
 
+const EMOTION_BARS = [
+  { key: 'happy', label: 'Happy / content', className: 'emotion-happy' },
+  { key: 'sad', label: 'Sad', className: 'emotion-sad' },
+  { key: 'low_mood', label: 'Low mood / heaviness', className: 'emotion-low-mood' },
+]
+
+function EmotionalTrends({ emotions }) {
+  if (!emotions) return null
+
+  if (emotions.entry_count === 0 || emotions.source === 'unavailable') {
+    return <p className="empty">{emotions.summary}</p>
+  }
+
+  return (
+    <>
+      <div className="emotion-bars">
+        {EMOTION_BARS.map((bar) => (
+          <div key={bar.key} className="emotion-bar-row">
+            <span className="emotion-bar-label">{bar.label}</span>
+            <span className="emotion-bar-track">
+              <span
+                className={`emotion-bar-fill ${bar.className}`}
+                style={{ width: `${emotions[bar.key]}%` }}
+              />
+            </span>
+            <span className="emotion-bar-value">{emotions[bar.key]}</span>
+          </div>
+        ))}
+      </div>
+      <p className="emotion-summary">{emotions.summary}</p>
+    </>
+  )
+}
+
+const REFRESH_INTERVAL_MS = 15000
+
 export function BurnoutDashboardPage() {
   const [trends, setTrends] = useState([])
   const [risk, setRisk] = useState(null)
+  const [emotions, setEmotions] = useState(null)
 
   useEffect(() => {
-    api.stressTrends(14).then(setTrends).catch(() => {})
-    api.burnoutRisk(7).then(setRisk).catch(() => {})
+    function refresh() {
+      api.stressTrends(14).then(setTrends).catch(() => {})
+      api.burnoutRisk(7).then(setRisk).catch(() => {})
+      api.journalEmotions().then(setEmotions).catch(() => {})
+    }
+    // The camera sensor and check-ins post new readings in the background while this page
+    // sits open — poll so the numbers actually move without a manual reload.
+    refresh()
+    const id = setInterval(refresh, REFRESH_INTERVAL_MS)
+    return () => clearInterval(id)
   }, [])
 
   return (
@@ -63,6 +108,14 @@ export function BurnoutDashboardPage() {
       <section>
         <h2>Stress trend (last 14 days)</h2>
         <TrendChart points={trends} />
+      </section>
+
+      <section>
+        <h2>Emotional tone (from your journal)</h2>
+        <p className="emotion-disclaimer">
+          A descriptive read of tone in your recent entries — not a diagnosis of any kind.
+        </p>
+        <EmotionalTrends emotions={emotions} />
       </section>
     </div>
   )

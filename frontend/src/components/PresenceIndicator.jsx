@@ -1,10 +1,10 @@
 export function PresenceIndicator({ presence, enabled, onToggleEnabled }) {
-  const { status, videoRef } = presence
+  const { status, attachVideo } = presence
 
   return (
     <div className="presence-indicator">
       <div className="presence-row">
-        <video ref={videoRef} muted playsInline className="presence-video" />
+        <video ref={attachVideo} muted playsInline className="presence-video" />
         <div className="presence-info">
           <span className="presence-status">
             <span className={`dot dot-${enabled ? status : 'idle'}`} />

@@ -44,12 +44,23 @@ class DelegationSuggestion(BaseModel):
 # ---- Stress ----
 
 
+class ExpressionScores(BaseModel):
+    neutral: float = Field(ge=0, le=1)
+    happy: float = Field(ge=0, le=1)
+    sad: float = Field(ge=0, le=1)
+    angry: float = Field(ge=0, le=1)
+    fearful: float = Field(ge=0, le=1)
+    disgusted: float = Field(ge=0, le=1)
+    surprised: float = Field(ge=0, le=1)
+
+
 class StressReadingCreate(BaseModel):
-    source: Literal["rppg", "manual", "checkin"]
+    source: Literal["rppg", "manual", "checkin", "expression"]
     heart_rate_bpm: Optional[float] = None
     respiration_rate_bpm: Optional[float] = None
     signal_quality: Optional[float] = Field(default=None, ge=0, le=1)
     self_reported_stress: Optional[int] = Field(default=None, ge=1, le=10)
+    expression: Optional[ExpressionScores] = None  # required when source == expression
 
 
 class StressReading(BaseModel):
@@ -61,6 +72,13 @@ class StressReading(BaseModel):
     respiration_rate_bpm: Optional[float] = None
     signal_quality: Optional[float] = None
     self_reported_stress: Optional[int] = None
+    expr_neutral: Optional[float] = None
+    expr_happy: Optional[float] = None
+    expr_sad: Optional[float] = None
+    expr_angry: Optional[float] = None
+    expr_fearful: Optional[float] = None
+    expr_disgusted: Optional[float] = None
+    expr_surprised: Optional[float] = None
     stress_score: float
     created_at: datetime.datetime
 
@@ -173,6 +191,15 @@ class JournalEntryOut(BaseModel):
 class JournalSummary(BaseModel):
     summary: str
     source: Literal["foundry", "anthropic", "template"]
+    entry_count: int
+
+
+class EmotionAnalysis(BaseModel):
+    happy: int = Field(ge=0, le=100)
+    sad: int = Field(ge=0, le=100)
+    low_mood: int = Field(ge=0, le=100)  # descriptive tone signal, not a diagnosis
+    summary: str
+    source: Literal["foundry", "anthropic", "template", "unavailable"]
     entry_count: int
 
 

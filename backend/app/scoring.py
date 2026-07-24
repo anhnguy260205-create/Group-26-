@@ -85,6 +85,31 @@ def checkin_to_stress_score(
     )
 
 
+# How much each detected facial expression contributes to stress, weighted by how present
+# that expression is (probabilities sum to ~1, so this is effectively a weighted average).
+# Fallback signal only — same "must keep working without it" status as rPPG: Daily
+# Check-in stays the reliable core, this just enriches it when the camera can see a face.
+EXPRESSION_STRESS_WEIGHTS = {
+    "neutral": 0.3,
+    "happy": 0.0,
+    "sad": 0.65,
+    "angry": 0.85,
+    "fearful": 0.8,
+    "disgusted": 0.55,
+    "surprised": 0.35,
+}
+
+
+def expression_to_stress_score(expression: dict) -> float:
+    """expression: plain dict of {name: 0-1 probability} for each key in
+    EXPRESSION_STRESS_WEIGHTS — pass a Pydantic model's .model_dump(), not the model itself."""
+    total = sum(
+        EXPRESSION_STRESS_WEIGHTS[name] * float(expression[name])
+        for name in EXPRESSION_STRESS_WEIGHTS
+    )
+    return round(max(0.0, min(total, 1.0)), 3)
+
+
 def burnout_risk_level(recent_scores: list[float]) -> Literal["low", "moderate", "high"]:
     """Sustained-pattern risk band from recent daily stress scores — a current-state read,
     not a forecast. Needs several days of data to mean anything; treats a thin history as low
@@ -155,7 +180,8 @@ def _explain(
     result = llm.complete(
         system="You are a calm, brief clinical-empathy assistant for a caregiver support app.",
         prompt=prompt,
-        max_tokens=80,
+        # Generous headroom for reasoning-model "thinking" tokens before the actual reply.
+        max_tokens=400,
     )
     if result:
         text, provider = result
@@ -227,6 +253,7 @@ def generate_breathing_guidance(
     result = llm.complete(
         system="You are a calm respiratory therapist for burnout prevention.",
         prompt=prompt,
-        max_tokens=30,
+        # Generous headroom for reasoning-model "thinking" tokens before the actual reply.
+        max_tokens=300,
     )
     return result[0] if result else None

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { api } from '../api'
 import { useFacePresence } from '../hooks/useFacePresence'
+import { EntryScan } from './EntryScan'
 import { Intervention } from './Intervention'
 import { PresenceIndicator } from './PresenceIndicator'
 import { Reflection } from './Reflection'
@@ -22,7 +23,10 @@ const NAV_ITEMS = [
 
 export function Layout() {
   const [monitoringEnabled, setMonitoringEnabled] = useState(true)
-  const [overlay, setOverlay] = useState('none') // none | intervention | reflection
+  // Starts on 'entryscan' so every fresh page load opens with the checking-in moment;
+  // navigating between routes client-side never remounts Layout, so it only ever runs once
+  // per load, not per page.
+  const [overlay, setOverlay] = useState('entryscan') // entryscan | none | intervention | reflection
   const [session, setSession] = useState(null) // { id, reasoning }
   const [reflection, setReflection] = useState(null)
   const cooldownUntilRef = useRef(0)
@@ -67,6 +71,14 @@ export function Layout() {
     setSession(null)
     setReflection(null)
     setOverlay('none')
+  }
+
+  function handleEntryScanDone() {
+    setOverlay('none')
+  }
+
+  if (overlay === 'entryscan') {
+    return <EntryScan presence={presence} onDone={handleEntryScanDone} />
   }
 
   if (overlay === 'intervention' && session) {

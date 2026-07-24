@@ -27,7 +27,8 @@ def generate_summary(entries: list[models.JournalEntry]) -> tuple[str, str]:
             "help them notice patterns. You never diagnose or give medical advice."
         ),
         prompt=prompt,
-        max_tokens=100,
+        # Generous headroom for reasoning-model "thinking" tokens before the actual reply.
+        max_tokens=400,
     )
     if result:
         text, provider = result

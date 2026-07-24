@@ -30,11 +30,19 @@ class StressReading(Base):
     __tablename__ = "stress_readings"
 
     id = Column(Integer, primary_key=True, index=True)
-    source = Column(String(32), nullable=False)  # rppg | manual
+    source = Column(String(32), nullable=False)  # rppg | manual | checkin | expression
     heart_rate_bpm = Column(Float, nullable=True)
     respiration_rate_bpm = Column(Float, nullable=True)
     signal_quality = Column(Float, nullable=True)  # 0-1 confidence of the rPPG estimate
     self_reported_stress = Column(Integer, nullable=True)  # 1-10, used when source == manual
+    # Facial-expression probabilities (0-1 each, sum to ~1), used when source == expression
+    expr_neutral = Column(Float, nullable=True)
+    expr_happy = Column(Float, nullable=True)
+    expr_sad = Column(Float, nullable=True)
+    expr_angry = Column(Float, nullable=True)
+    expr_fearful = Column(Float, nullable=True)
+    expr_disgusted = Column(Float, nullable=True)
+    expr_surprised = Column(Float, nullable=True)
     stress_score = Column(Float, nullable=False)  # normalized 0-1, computed at ingest time
     created_at = Column(DateTime, nullable=False, default=utcnow)
 

@@ -103,7 +103,9 @@ def reply(db: Session, user_text: str) -> tuple[str, str]:
             "feelings, never minimize them, and never give medical advice or diagnoses."
         ),
         prompt=prompt,
-        max_tokens=180,
+        # Reasoning models (e.g. gpt-oss via Foundry) spend tokens "thinking" before
+        # writing the reply — too small a budget truncates before any content comes out.
+        max_tokens=500,
     )
     if result:
         text, provider = result

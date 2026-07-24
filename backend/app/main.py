@@ -5,7 +5,7 @@ from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
-from . import companion, delegation, journal, models, reflection, resources, schemas, scoring
+from . import companion, delegation, emotion, journal, models, reflection, resources, schemas, scoring
 from .database import Base, engine, get_db
 
 load_dotenv()
@@ -104,6 +104,10 @@ def ingest_stress_reading(reading: schemas.StressReadingCreate, db: Session = De
         stress_score = scoring.heart_rate_to_stress_score(
             reading.heart_rate_bpm, reading.signal_quality
         )
+    elif reading.source == "expression":
+        if reading.expression is None:
+            raise HTTPException(status_code=422, detail="expression required for expression readings")
+        stress_score = scoring.expression_to_stress_score(reading.expression.model_dump())
     else:
         if reading.self_reported_stress is None:
             raise HTTPException(
@@ -119,6 +123,9 @@ def ingest_stress_reading(reading: schemas.StressReadingCreate, db: Session = De
         self_reported_stress=reading.self_reported_stress,
         stress_score=stress_score,
     )
+    if reading.expression is not None:
+        for name, value in reading.expression.model_dump().items():
+            setattr(db_reading, f"expr_{name}", value)
     db.add(db_reading)
     db.commit()
     db.refresh(db_reading)
@@ -229,6 +236,12 @@ def journal_summary(db: Session = Depends(get_db)):
     entries = list(reversed(db.query(models.JournalEntry).order_by(models.JournalEntry.created_at.desc()).limit(journal.SUMMARY_WINDOW).all()))
     summary, source = journal.generate_summary(entries)
     return schemas.JournalSummary(summary=summary, source=source, entry_count=len(entries))
+
+
+@app.get("/journal/emotions", response_model=schemas.EmotionAnalysis)
+def journal_emotions(db: Session = Depends(get_db)):
+    entries = list(reversed(db.query(models.JournalEntry).order_by(models.JournalEntry.created_at.desc()).limit(emotion.ANALYSIS_WINDOW).all()))
+    return schemas.EmotionAnalysis(**emotion.analyze(entries))
 
 
 # ---------------------------------------------------------------------------
