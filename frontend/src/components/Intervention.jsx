@@ -2,13 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 
 const PACE_REFRESH_MS = 5000
-const MIN_SESSION_MS = 45000
-const MAX_SESSION_MS = 180000
-const RELIEF_STRESS_SCORE = 0.5
+// No continuous physiological signal to detect "settled" anymore (camera only does face
+// presence, not stress) — the session just runs a fixed length, plus the manual end button.
+const SESSION_DURATION_MS = 90000
 
 const PHASE_LABEL = { inhale: 'Breathe in', hold: 'Hold', exhale: 'Breathe out' }
 
-export function Intervention({ sessionId, triggerReasoning, latestStressScore, onFinished }) {
+export function Intervention({ sessionId, triggerReasoning, onFinished }) {
   const [pace, setPace] = useState({
     inhale_seconds: 4,
     hold_seconds: 4,
@@ -16,7 +16,6 @@ export function Intervention({ sessionId, triggerReasoning, latestStressScore, o
     guidance: 'Let’s take a moment together.',
   })
   const [phase, setPhase] = useState('inhale')
-  const startRef = useRef(Date.now())
   const endingRef = useRef(false)
 
   // Keep the pace synced to real-time stress — the AI adjusts rhythm mid-session.
@@ -63,17 +62,11 @@ export function Intervention({ sessionId, triggerReasoning, latestStressScore, o
     }
   }, [sessionId, onFinished])
 
-  // Auto-end once the caregiver has genuinely settled, with a hard safety cap either way.
+  // Auto-end after a fixed duration; the caregiver can also end it manually any time.
   useEffect(() => {
-    const id = setInterval(() => {
-      const elapsed = Date.now() - startRef.current
-      const settled = latestStressScore != null && latestStressScore < RELIEF_STRESS_SCORE
-      if ((elapsed >= MIN_SESSION_MS && settled) || elapsed >= MAX_SESSION_MS) {
-        finish()
-      }
-    }, 2000)
-    return () => clearInterval(id)
-  }, [latestStressScore, finish])
+    const timer = setTimeout(finish, SESSION_DURATION_MS)
+    return () => clearTimeout(timer)
+  }, [finish])
 
   const scale = phase === 'inhale' ? 1.35 : phase === 'exhale' ? 0.85 : 1.1
   const duration = { inhale: pace.inhale_seconds, hold: pace.hold_seconds, exhale: pace.exhale_seconds }[phase]

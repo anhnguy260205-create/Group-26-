@@ -1,10 +1,11 @@
 // Minimal remote-photoplethysmography signal processing.
 //
-// Approach: the green channel of skin pixels absorbs/reflects light in sync with blood
-// volume pulses. We sample the mean green value of a center-frame crop (a stand-in for a
-// face-detection ROI) on every capture tick, then run simple peak detection over a rolling
-// window to estimate heart rate. This is intentionally simple — good enough for a
-// discreet background signal, not a medical device.
+// Not currently wired into the live app — the camera pipeline (useFacePresence.js) only
+// does face-presence detection now. Kept here for the spec's optional "Quick Pulse Check"
+// bonus feature (a user-triggered 20-second reading), which can reuse this as-is: sample
+// the mean green value of a skin-region crop on every capture tick, then run peak detection
+// over a rolling window to estimate heart rate. Intentionally simple — good enough for a
+// discreet signal, not a medical device.
 
 export function meanGreen(imageData) {
   const { data } = imageData

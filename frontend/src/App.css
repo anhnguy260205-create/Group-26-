@@ -60,13 +60,8 @@
   font-weight: 500;
 }
 
-.sidebar .stress-monitor {
+.sidebar .presence-indicator {
   margin-top: auto;
-}
-.sidebar .stress-monitor-badge {
-  width: 100%;
-  box-sizing: border-box;
-  flex-wrap: wrap;
 }
 
 .content {
@@ -83,19 +78,43 @@
   margin: 4px 0 24px;
 }
 
-/* ---- Stress monitor badge ---- */
+/* ---- Presence indicator ---- */
 
-.stress-monitor-badge {
+.presence-row {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 14px;
-  background: var(--card);
+}
+
+.presence-video {
+  width: 84px;
+  height: 63px;
+  object-fit: cover;
+  border-radius: 8px;
   border: 1px solid var(--line);
-  border-radius: 999px;
-  width: fit-content;
-  font-size: 14px;
+  background: var(--paper);
+  transform: scaleX(-1); /* mirror, like looking in a mirror */
+  flex-shrink: 0;
+}
+
+.presence-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+}
+.presence-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.presence-label {
+  font-size: 13px;
   color: var(--ink-soft);
+}
+.presence-info .link-button {
+  font-size: 13px;
 }
 
 .dot {
@@ -105,42 +124,25 @@
   background: var(--line);
   flex-shrink: 0;
 }
-/* Presence dot: color reflects the AI's current read on stress, not connection status. */
-.dot-calm {
+/* Presence dot: whether a face is currently detected in frame. */
+.dot-present {
   background: var(--moss);
   box-shadow: 0 0 0 4px var(--moss-light);
   animation: pulse 2.6s ease-in-out infinite;
 }
-.dot-elevated {
-  background: var(--amber);
-  box-shadow: 0 0 0 4px var(--amber-light);
-  animation: pulse 1.4s ease-in-out infinite;
+.dot-absent {
+  background: var(--ink-soft);
 }
-.dot-sensing,
 .dot-starting {
   background: var(--ink-soft);
   animation: pulse 1.6s ease-in-out infinite;
 }
+.dot-unavailable {
+  background: var(--line);
+}
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.4; }
-}
-
-.stress-meter {
-  width: 72px;
-  height: 6px;
-  border-radius: 999px;
-  background: var(--moss-light);
-  overflow: hidden;
-}
-.stress-meter-fill {
-  height: 100%;
-  border-radius: 999px;
-  background: var(--moss);
-  transition: width 0.6s ease, background 0.6s ease;
-}
-.stress-meter-fill.elevated {
-  background: var(--amber);
 }
 
 .link-button {
@@ -151,39 +153,6 @@
   font: inherit;
   padding: 0;
   text-decoration: underline;
-}
-
-.manual-checkin {
-  margin-top: 8px;
-  padding: 14px 16px;
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  max-width: 420px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  font-size: 14px;
-  color: var(--ink);
-}
-.manual-checkin input[type='range'] {
-  width: 100%;
-  accent-color: var(--moss);
-}
-.manual-checkin-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  color: var(--ink-soft);
-}
-.manual-checkin-row button {
-  padding: 6px 14px;
-  border-radius: 6px;
-  border: none;
-  background: var(--moss);
-  color: var(--card);
-  font: inherit;
-  cursor: pointer;
 }
 
 /* ---- Dashboard ---- */

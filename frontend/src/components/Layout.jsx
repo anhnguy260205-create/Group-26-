@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { api } from '../api'
-import { useStressMonitor } from '../hooks/useStressMonitor'
+import { useFacePresence } from '../hooks/useFacePresence'
 import { Intervention } from './Intervention'
+import { PresenceIndicator } from './PresenceIndicator'
 import { Reflection } from './Reflection'
-import { StressMonitor } from './StressMonitor'
 
 const THRESHOLD_POLL_MS = 15000
 // Give a just-finished recovery session room to actually land before checking again —
@@ -27,7 +27,7 @@ export function Layout() {
   const [reflection, setReflection] = useState(null)
   const cooldownUntilRef = useRef(0)
 
-  const monitor = useStressMonitor({ enabled: monitoringEnabled })
+  const presence = useFacePresence({ enabled: monitoringEnabled })
 
   // The AI brain: while not already mid-session, periodically check whether behavioral
   // load + physiological stress have crossed the intervene threshold — from any page.
@@ -74,7 +74,6 @@ export function Layout() {
       <Intervention
         sessionId={session.id}
         triggerReasoning={session.reasoning}
-        latestStressScore={monitor.latest?.stress_score}
         onFinished={handleInterventionFinished}
       />
     )
@@ -104,8 +103,8 @@ export function Layout() {
             </li>
           ))}
         </ul>
-        <StressMonitor
-          monitor={monitor}
+        <PresenceIndicator
+          presence={presence}
           enabled={monitoringEnabled}
           onToggleEnabled={() => setMonitoringEnabled((v) => !v)}
         />
