@@ -110,6 +110,7 @@ class BreathingPace(BaseModel):
     hold_seconds: float
     exhale_seconds: float
     guidance: str
+    guidance_source: Literal["llm", "rule"] = "rule"
 
 
 class SessionEnd(BaseModel):

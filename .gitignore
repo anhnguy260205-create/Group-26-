@@ -227,3 +227,5 @@ node_modules/
 dist/
 dist-ssr/
 *.local
+backend/app.db-journal
+backend/*.db
