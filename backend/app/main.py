@@ -5,7 +5,20 @@ from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
-from . import companion, delegation, journal, models, reflection, resources, schemas, scoring
+from . import (
+    companion,
+    delegation,
+    emotion,
+    journal,
+    models,
+    reflection,
+    resources,
+    schemas,
+    scoring,
+    suggestions,
+    twin,
+    weekly,
+)
 from .database import Base, engine, get_db
 
 load_dotenv()
@@ -16,7 +29,7 @@ app = FastAPI(title="Group-26 Caregiver Support API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -179,6 +192,31 @@ def burnout_risk(days: int = 7, db: Session = Depends(get_db)):
     )
 
 
+@app.get("/stress/forecast", response_model=schemas.StressForecast)
+def stress_forecast(days: int = 3, db: Session = Depends(get_db)):
+    """Caregiver Digital Twin: forecast the next `days` of stress + name the driver."""
+    horizon = max(1, min(days, 7))
+    return twin.forecast_stress(db, horizon_days=horizon)
+
+
+@app.get("/summary/weekly", response_model=schemas.WeeklySummary)
+def weekly_summary(db: Session = Depends(get_db)):
+    """Cross-metric AI weekly summary (sleep/stress/mood trends + driver)."""
+    return weekly.generate(db)
+
+
+@app.get("/suggestions/daily", response_model=schemas.DailySuggestions)
+def daily_suggestions(db: Session = Depends(get_db)):
+    """Small, non-medical daily nudges tailored to the latest check-in."""
+    return suggestions.daily(db)
+
+
+@app.post("/emotion", response_model=schemas.EmotionResult)
+def analyze_emotion(body: schemas.EmotionRequest):
+    """Emotion / stress / burnout labels for a journal entry or chat message."""
+    return emotion.analyze(body.text)
+
+
 # ---------------------------------------------------------------------------
 # Daily check-in
 # ---------------------------------------------------------------------------
@@ -189,7 +227,14 @@ def submit_checkin(body: schemas.CheckinCreate, db: Session = Depends(get_db)):
     stress_score = scoring.checkin_to_stress_score(
         body.mood, body.hours_slept, body.care_hours, body.had_me_time
     )
-    reading = models.StressReading(source="checkin", stress_score=stress_score)
+    reading = models.StressReading(
+        source="checkin",
+        stress_score=stress_score,
+        mood=body.mood,
+        hours_slept=body.hours_slept,
+        care_hours=body.care_hours,
+        had_me_time=body.had_me_time,
+    )
     db.add(reading)
     db.commit()
     db.refresh(reading)

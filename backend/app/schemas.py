@@ -74,6 +74,27 @@ class StressTrendPoint(BaseModel):
     count: int
 
 
+# ---- Digital Twin: predictive stress forecast ----
+
+
+class StressForecastPoint(BaseModel):
+    date: datetime.date
+    predicted_score: float  # 0-1
+    predicted_display: int  # 0-100, for UI
+    lower: float  # confidence band, 0-1
+    upper: float
+
+
+class StressForecast(BaseModel):
+    horizon_days: int
+    days_of_history: int
+    trend: Literal["rising", "falling", "steady"]
+    points: list[StressForecastPoint]
+    main_driver: Optional[str] = None  # e.g. "long caregiving hours"
+    narrative: str
+    narrative_source: Literal["foundry", "anthropic", "template"]
+
+
 # ---- Threshold / AI brain ----
 
 
@@ -196,6 +217,41 @@ class ChatReply(BaseModel):
     user_message: ChatMessageOut
     assistant_message: ChatMessageOut
     source: Literal["foundry", "anthropic", "template", "rule"]
+
+
+# ---- Emotion analysis ----
+
+
+class EmotionRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=2000)
+
+
+class EmotionResult(BaseModel):
+    emotion: str
+    stress: Literal["low", "moderate", "high"]
+    burnout_risk: Literal["low", "moderate", "high"]
+    source: Literal["foundry", "anthropic", "rule"]
+
+
+# ---- Weekly summary ----
+
+
+class WeeklySummary(BaseModel):
+    summary: str
+    source: Literal["foundry", "anthropic", "template"]
+    days_of_data: int
+    sleep_trend: Literal["up", "down", "flat"]
+    stress_trend: Literal["up", "down", "flat"]
+    mood_trend: Literal["up", "down", "flat"]
+    main_driver: Optional[str] = None
+
+
+# ---- Daily suggestions ----
+
+
+class DailySuggestions(BaseModel):
+    suggestions: list[str]
+    based_on_checkin: bool
 
 
 # ---- Resource Finder ----
