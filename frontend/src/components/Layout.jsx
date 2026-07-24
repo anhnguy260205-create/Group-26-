@@ -16,7 +16,6 @@ const NAV_ITEMS = [
   { to: '/', label: 'Home', end: true },
   { to: '/checkin', label: 'Daily Check-in' },
   { to: '/companion', label: 'AI Companion' },
-  { to: '/journal', label: 'Journal' },
   { to: '/burnout', label: 'Burnout Dashboard' },
   { to: '/resources', label: 'Resource Finder' },
 ]

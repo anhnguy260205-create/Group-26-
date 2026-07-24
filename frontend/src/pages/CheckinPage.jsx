@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { api } from '../api'
 
 const MOODS = [
@@ -8,6 +8,10 @@ const MOODS = [
   { value: 4, emoji: '😭', label: 'Barely holding on' },
 ]
 
+function formatDate(iso) {
+  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
+
 export function CheckinPage() {
   const [mood, setMood] = useState(null)
   const [hoursSlept, setHoursSlept] = useState('')
@@ -16,7 +20,21 @@ export function CheckinPage() {
   const [result, setResult] = useState(null)
   const [submitting, setSubmitting] = useState(false)
 
+  const [entries, setEntries] = useState([])
+  const [journalText, setJournalText] = useState('')
+  const [summary, setSummary] = useState(null)
+  const [journalSubmitting, setJournalSubmitting] = useState(false)
+
   const canSubmit = mood != null && hoursSlept !== '' && careHours !== '' && hadMeTime != null
+
+  function refreshJournal() {
+    api.listJournal().then(setEntries).catch(() => {})
+    api.journalSummary().then(setSummary).catch(() => {})
+  }
+
+  useEffect(() => {
+    refreshJournal()
+  }, [])
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -41,6 +59,20 @@ export function CheckinPage() {
     setHoursSlept('')
     setCareHours('')
     setHadMeTime(null)
+  }
+
+  async function handleJournalSubmit(e) {
+    e.preventDefault()
+    const trimmed = journalText.trim()
+    if (!trimmed || journalSubmitting) return
+    setJournalSubmitting(true)
+    try {
+      await api.createJournalEntry({ text: trimmed })
+      setJournalText('')
+      refreshJournal()
+    } finally {
+      setJournalSubmitting(false)
+    }
   }
 
   if (result) {
@@ -134,6 +166,39 @@ export function CheckinPage() {
           {submitting ? 'Submitting…' : 'Submit check-in'}
         </button>
       </form>
+      <br />
+      <h1>Journal</h1>
+      <p className="page-subtitle">One line a day — what happened today?</p>
+
+      <form onSubmit={handleJournalSubmit} className="journal-form">
+        <input
+          type="text"
+          value={journalText}
+          onChange={(e) => setJournalText(e.target.value)}
+          placeholder="Today was..."
+          maxLength={500}
+        />
+        <button type="submit" disabled={journalSubmitting || !journalText.trim()}>
+          Add entry
+        </button>
+      </form>
+
+      {summary && (
+        <div className="journal-summary">
+          <h2>Pattern across recent entries</h2>
+          <p>{summary.summary}</p>
+        </div>
+      )}
+
+      <ul className="journal-list">
+        {entries.length === 0 && <p className="empty">No entries yet.</p>}
+        {entries.map((e) => (
+          <li key={e.id} className="journal-entry">
+            <span className="journal-date">{formatDate(e.created_at)}</span>
+            <span className="journal-text">{e.text}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }
