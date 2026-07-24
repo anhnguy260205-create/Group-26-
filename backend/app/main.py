@@ -154,7 +154,17 @@ def get_pace(session_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Session not found")
     reading = scoring.latest_reading(db)
     physiological = scoring.physiological_score(reading)
-    return scoring.breathing_pace(physiological)
+    respiration_rate = reading.respiration_rate_bpm if reading else None
+    pace = scoring.breathing_pace(physiological, respiration_rate)
+
+    if respiration_rate is not None:
+        trend = scoring.recent_stress_trend(db)
+        llm_guidance = scoring.generate_breathing_guidance(physiological, respiration_rate, trend)
+        if llm_guidance:
+            pace["guidance"] = llm_guidance
+            pace["guidance_source"] = "llm"
+
+    return pace
 
 
 @app.post("/intervention/{session_id}/end", response_model=schemas.SessionOut)

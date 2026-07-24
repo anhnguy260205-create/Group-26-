@@ -74,6 +74,17 @@ def latest_reading(db: Session) -> models.StressReading | None:
     return db.query(models.StressReading).order_by(models.StressReading.created_at.desc()).first()
 
 
+def recent_stress_trend(db: Session, limit: int = 5) -> list[float]:
+    """Oldest-to-newest stress_score of the last `limit` readings, for trend direction."""
+    rows = (
+        db.query(models.StressReading)
+        .order_by(models.StressReading.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+    return [r.stress_score for r in reversed(rows)]
+
+
 def check_threshold(db: Session) -> ThresholdDecision:
     behavioral = behavioral_score(db)
     reading = latest_reading(db)
@@ -116,8 +127,16 @@ def _explain(
     )
 
 
-def breathing_pace(physiological: float) -> dict:
-    """Slower, more exhale-biased pacing the higher the stress score is."""
+TARGET_RESPIRATION_BPM = 10.0
+
+
+def breathing_pace(physiological: float, respiration_rate_bpm: float | None = None) -> dict:
+    """Slower, more exhale-biased pacing the higher the stress score is.
+
+    If a live respiration reading is available, stretch the exhale further when
+    the caregiver is actually breathing faster than the calm target — this is
+    the real-time sync with physiological status.
+    """
     if physiological >= 0.8:
         inhale, hold, exhale = 4.0, 2.0, 8.0
         guidance = "Let's slow all the way down. In for 4, hold for 2, out for 8."
@@ -127,9 +146,40 @@ def breathing_pace(physiological: float) -> dict:
     else:
         inhale, hold, exhale = 4.0, 4.0, 4.0
         guidance = "Nice and steady — in for 4, hold for 4, out for 4."
+
+    if respiration_rate_bpm is not None and respiration_rate_bpm > TARGET_RESPIRATION_BPM:
+        # Breathing faster than calm target -> stretch exhale proportionally, capped.
+        excess = respiration_rate_bpm - TARGET_RESPIRATION_BPM
+        stretch = min(1.0 + excess * 0.1, 1.5)  # cap at +50% exhale
+        exhale = round(exhale * stretch, 1)
+        guidance = f"You're at {respiration_rate_bpm:.0f} breaths a minute — let's stretch that exhale out."
+
     return {
         "inhale_seconds": inhale,
         "hold_seconds": hold,
         "exhale_seconds": exhale,
         "guidance": guidance,
     }
+
+
+def generate_breathing_guidance(
+    physiological: float,
+    respiration_rate: float,
+    stress_trend: list[float],
+) -> str | None:
+    """AI-personalized breathing cue. Returns None if LLM unavailable — caller must
+    fall back to the rule-based `guidance` string from breathing_pace() in that case.
+    """
+    trend = "improving" if len(stress_trend) > 1 and stress_trend[-1] < stress_trend[0] else "elevated"
+
+    prompt = (
+        f"Caregiver breathing at {respiration_rate:.1f} breaths/min (target 10). "
+        f"Stress trend: {trend}. Stress level: {physiological:.2f}/1.0. "
+        "In one caring, short sentence, give ONE breathing instruction. "
+        "e.g., 'Exhale for a count of 6' or 'Let's slow down together'."
+    )
+    return llm.complete(
+        system="You are a calm respiratory therapist for burnout prevention.",
+        prompt=prompt,
+        max_tokens=30,
+    )

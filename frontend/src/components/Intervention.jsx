@@ -87,6 +87,9 @@ export function Intervention({ sessionId, triggerReasoning, latestStressScore, o
       />
       <p className="breathing-phase">{PHASE_LABEL[phase]}</p>
       <p className="breathing-guidance">{pace.guidance}</p>
+      {pace.guidance_source === 'llm' && (
+        <p className="breathing-guidance-tag">AI-adjusted</p>
+      )}
       <button type="button" className="link-button" onClick={finish}>
         End session
       </button>
