@@ -44,12 +44,23 @@ class DelegationSuggestion(BaseModel):
 # ---- Stress ----
 
 
+class ExpressionScores(BaseModel):
+    neutral: float = Field(ge=0, le=1)
+    happy: float = Field(ge=0, le=1)
+    sad: float = Field(ge=0, le=1)
+    angry: float = Field(ge=0, le=1)
+    fearful: float = Field(ge=0, le=1)
+    disgusted: float = Field(ge=0, le=1)
+    surprised: float = Field(ge=0, le=1)
+
+
 class StressReadingCreate(BaseModel):
-    source: Literal["rppg", "manual", "checkin"]
+    source: Literal["rppg", "manual", "checkin", "expression"]
     heart_rate_bpm: Optional[float] = None
     respiration_rate_bpm: Optional[float] = None
     signal_quality: Optional[float] = Field(default=None, ge=0, le=1)
     self_reported_stress: Optional[int] = Field(default=None, ge=1, le=10)
+    expression: Optional[ExpressionScores] = None  # required when source == expression
 
 
 class StressReading(BaseModel):
@@ -61,6 +72,13 @@ class StressReading(BaseModel):
     respiration_rate_bpm: Optional[float] = None
     signal_quality: Optional[float] = None
     self_reported_stress: Optional[int] = None
+    expr_neutral: Optional[float] = None
+    expr_happy: Optional[float] = None
+    expr_sad: Optional[float] = None
+    expr_angry: Optional[float] = None
+    expr_fearful: Optional[float] = None
+    expr_disgusted: Optional[float] = None
+    expr_surprised: Optional[float] = None
     stress_score: float
     created_at: datetime.datetime
 
@@ -155,16 +173,50 @@ class ReflectionOut(BaseModel):
 
 
 class CheckinCreate(BaseModel):
-    mood: int = Field(ge=1, le=4)  # 1 Good, 2 Okay, 3 Drained, 4 Barely holding on
-    hours_slept: float = Field(ge=0, le=24)
-    care_hours: float = Field(ge=0, le=24)
-    had_me_time: bool
+    journal: str = Field(default="", max_length=500)
+    mood: int = Field(ge=0, le=10)
+    sleep: int = Field(ge=0, le=10)
+    energy: int = Field(ge=0, le=10)
+    night_care: int = Field(ge=0, le=10)  # nighttime caregiving burden
+    free_time: int = Field(ge=0, le=10)
 
 
 class CheckinOut(BaseModel):
-    stress_score: float  # 0-1, for internal/API consistency with other stress readings
-    stress_score_display: int  # 0-100, for UI display per spec
-    reading: StressReading
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    journal: Optional[str] = None
+    mood: int
+    sleep: int
+    energy: int
+    night_care: int
+    free_time: int
+    face_stress: Optional[float] = None  # 0-1 fused facial-tension reading, if one was fresh
+    capacity_score: int  # 0-100, higher = more capacity left
+    main_driver: str
+    reason: str
+    source: Literal["foundry", "anthropic", "rule"]
+    created_at: datetime.datetime
+
+
+class CapacityPoint(BaseModel):
+    date: datetime.date
+    capacity: int
+    driver: str
+
+
+class CapacityForecast(BaseModel):
+    points: list[CapacityPoint]
+    days_of_data: int
+    avg_capacity: Optional[int] = None
+    trend: Literal["declining", "steady", "improving"]
+    consecutive_decline_days: int
+    recurring_driver: Optional[str] = None
+    predicted_capacity: Optional[int] = None
+    risk: Literal["low", "moderate", "high"]
+    forecast: str
+    suggestions: list[str]
+    source: Literal["foundry", "anthropic", "rule"]
 
 
 class BurnoutRisk(BaseModel):
@@ -197,6 +249,15 @@ class JournalSummary(BaseModel):
     entry_count: int
 
 
+class EmotionAnalysis(BaseModel):
+    happy: int = Field(ge=0, le=100)
+    sad: int = Field(ge=0, le=100)
+    low_mood: int = Field(ge=0, le=100)  # descriptive tone signal, not a diagnosis
+    summary: str
+    source: Literal["foundry", "anthropic", "template", "unavailable"]
+    entry_count: int
+
+
 # ---- AI Companion ----
 
 
@@ -219,39 +280,42 @@ class ChatReply(BaseModel):
     source: Literal["foundry", "anthropic", "template", "rule"]
 
 
-# ---- Emotion analysis ----
+# ---- Recharge & Reconnect ----
 
 
-class EmotionRequest(BaseModel):
-    text: str = Field(min_length=1, max_length=2000)
+class RechargeActionOut(BaseModel):
+    id: int
+    kind: str
+    label: str
+    detail: str
+    reconnect: bool
+    driver: Optional[str] = None
+    status: Literal["pending", "done", "skipped"]
 
 
-class EmotionResult(BaseModel):
-    emotion: str
-    stress: Literal["low", "moderate", "high"]
-    burnout_risk: Literal["low", "moderate", "high"]
+class RechargeStatusUpdate(BaseModel):
+    status: Literal["done", "skipped", "pending"]
+
+
+# ---- Progress / Evidence ----
+
+
+class ProgressOut(BaseModel):
+    yesterday: datetime.date
+    done_actions: list[str]
+    capacity_yesterday: Optional[int] = None
+    capacity_today: Optional[int] = None
+    capacity_change: Optional[int] = None
+    has_evidence: bool
+    evidence: str
+
+
+# ---- Copilot opening ----
+
+
+class OpeningLine(BaseModel):
+    opening: str
     source: Literal["foundry", "anthropic", "rule"]
-
-
-# ---- Weekly summary ----
-
-
-class WeeklySummary(BaseModel):
-    summary: str
-    source: Literal["foundry", "anthropic", "template"]
-    days_of_data: int
-    sleep_trend: Literal["up", "down", "flat"]
-    stress_trend: Literal["up", "down", "flat"]
-    mood_trend: Literal["up", "down", "flat"]
-    main_driver: Optional[str] = None
-
-
-# ---- Daily suggestions ----
-
-
-class DailySuggestions(BaseModel):
-    suggestions: list[str]
-    based_on_checkin: bool
 
 
 # ---- Resource Finder ----

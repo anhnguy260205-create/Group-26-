@@ -20,7 +20,8 @@ def generate(session: models.CareSession) -> tuple[str, str]:
             "or performative. You close the loop after a recovery session with warmth."
         ),
         prompt=prompt,
-        max_tokens=150,
+        # Generous headroom for reasoning-model "thinking" tokens before the actual reply.
+        max_tokens=500,
     )
     if result:
         text, provider = result

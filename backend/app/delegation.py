@@ -26,7 +26,8 @@ def _phrase_ask(task_title: str, member: str) -> tuple[str, str]:
     result = llm.complete(
         system="You help an overwhelmed caregiver gently ask family for help.",
         prompt=prompt,
-        max_tokens=60,
+        # Generous headroom for reasoning-model "thinking" tokens before the actual reply.
+        max_tokens=300,
     )
     if result:
         text, provider = result

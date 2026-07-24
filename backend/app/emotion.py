@@ -1,106 +1,86 @@
-"""Emotion analysis of a journal entry or chat message.
+"""Emotional tone analysis over recent journal entries.
 
-Produces the "Emotion: Frustrated · Stress: High · Burnout Risk: Moderate" tag from
-FEATURES.md. Rule-based first so it always returns something offline; an LLM refines
-the labels when reachable. Never diagnoses — these are supportive reflections only.
+Deliberately NOT diagnostic — the app's own positioning is "support and signposting, not
+medical." So this scores descriptive emotional tone (happy / sad / low-mood-and-heavy),
+never a clinical construct like "depression." The LLM is instructed accordingly, and no
+rule-based diagnosis logic backs this — if the LLM is unavailable, we say so honestly
+rather than fabricate scores from nothing.
 """
 
 import json
+import re
 
-from . import llm
+from . import llm, models
 
-# Ordered by rough severity so a strong signal wins when several match.
-EMOTION_KEYWORDS = {
-    "overwhelmed": ["overwhelm", "too much", "can't cope", "cant cope", "drowning", "breaking point"],
-    "exhausted": ["exhaust", "so tired", "drained", "worn out", "no energy", "burnt out", "burned out"],
-    "frustrated": ["frustrat", "angry", "fed up", "annoyed", "irritat", "sick of"],
-    "anxious": ["anxious", "worried", "scared", "afraid", "panic", "nervous", "on edge"],
-    "sad": ["sad", "cry", "crying", "hopeless", "empty", "down", "depress"],
-    "lonely": ["alone", "lonely", "no one", "nobody", "isolated", "by myself"],
-    "hopeful": ["hopeful", "better", "improving", "grateful", "thankful", "proud", "relief"],
-    "calm": ["calm", "okay", "fine", "peaceful", "rested", "good day"],
-}
+ANALYSIS_WINDOW = 7
 
-HIGH_STRESS_WORDS = [
-    "overwhelm", "breaking point", "can't cope", "cant cope", "exhaust", "burnt out",
-    "burned out", "hopeless", "too much", "drowning", "panic",
-]
-MODERATE_STRESS_WORDS = [
-    "tired", "worried", "frustrat", "stress", "hard", "difficult", "struggl", "anxious", "angry",
-]
+SYSTEM_PROMPT = (
+    "You describe the emotional tone of a caregiver's journal entries for a support app. "
+    "You are not a clinician, you do not diagnose, and you never use clinical/diagnostic "
+    "terms like 'depression' — describe tone only, in plain supportive language. Respond "
+    "with ONLY a JSON object, no other text, in exactly this shape: "
+    '{"happy": <0-100 int>, "sad": <0-100 int>, "low_mood": <0-100 int>, "summary": "<one short sentence>"}. '
+    "Each score is how present that tone is across the entries (0 = not present, 100 = dominant) "
+    "— they are independent, not required to sum to 100. 'low_mood' means heaviness/flatness/"
+    "low energy, not a diagnosis."
+)
 
 
-def _rule_based(text: str) -> dict:
-    lowered = text.lower()
-
-    emotion = "neutral"
-    for label, keywords in EMOTION_KEYWORDS.items():
-        if any(k in lowered for k in keywords):
-            emotion = label
-            break
-
-    high = sum(1 for w in HIGH_STRESS_WORDS if w in lowered)
-    moderate = sum(1 for w in MODERATE_STRESS_WORDS if w in lowered)
-    if high >= 1:
-        stress = "high"
-    elif moderate >= 1:
-        stress = "moderate"
-    else:
-        stress = "low"
-
-    # Burnout risk leans on exhaustion/overwhelm specifically, not one-off frustration.
-    if emotion in ("overwhelmed", "exhausted") or high >= 2:
-        burnout = "high"
-    elif stress == "high" or emotion in ("frustrated", "anxious", "sad", "lonely"):
-        burnout = "moderate"
-    else:
-        burnout = "low"
-
-    return {"emotion": emotion, "stress": stress, "burnout_risk": burnout, "source": "rule"}
-
-
-_VALID = {
-    "emotion": set(EMOTION_KEYWORDS) | {"neutral"},
-    "stress": {"low", "moderate", "high"},
-    "burnout_risk": {"low", "moderate", "high"},
-}
-
-
-def analyze(text: str) -> dict:
-    """Return {emotion, stress, burnout_risk, source}. Always succeeds."""
-    rule = _rule_based(text)
-
-    prompt = (
-        f'Caregiver wrote: "{text}"\n\n'
-        "Classify it. Reply with ONLY a JSON object, no prose, with keys:\n"
-        '  "emotion": one of '
-        f'{sorted(_VALID["emotion"])}\n'
-        '  "stress": "low" | "moderate" | "high"\n'
-        '  "burnout_risk": "low" | "moderate" | "high"'
-    )
-    result = llm.complete(
-        system=(
-            "You label a caregiver's text for a support app. You are not a clinician and do "
-            "not diagnose; these are supportive reflections. Output strict JSON only."
-        ),
-        prompt=prompt,
-        max_tokens=60,
-    )
-    if not result:
-        return rule
-
-    text_out, provider = result
+def _extract_json(text: str) -> dict | None:
+    """LLMs (especially reasoning models) sometimes wrap JSON in extra text despite
+    instructions — pull out the first {...} block rather than fail outright."""
+    match = re.search(r"\{.*\}", text, re.DOTALL)
+    if not match:
+        return None
     try:
-        start, end = text_out.find("{"), text_out.rfind("}")
-        parsed = json.loads(text_out[start : end + 1])
-        out = {
-            "emotion": parsed["emotion"] if parsed.get("emotion") in _VALID["emotion"] else rule["emotion"],
-            "stress": parsed["stress"] if parsed.get("stress") in _VALID["stress"] else rule["stress"],
-            "burnout_risk": parsed["burnout_risk"]
-            if parsed.get("burnout_risk") in _VALID["burnout_risk"]
-            else rule["burnout_risk"],
-            "source": provider,
+        return json.loads(match.group(0))
+    except ValueError:
+        return None
+
+
+def _clamp(value, lo=0, hi=100) -> int:
+    try:
+        return max(lo, min(int(round(float(value))), hi))
+    except (TypeError, ValueError):
+        return 0
+
+
+def analyze(entries: list[models.JournalEntry]) -> dict:
+    """entries must be oldest-first. Always returns a complete dict — never raises."""
+    if not entries:
+        return {
+            "happy": 0,
+            "sad": 0,
+            "low_mood": 0,
+            "summary": "No journal entries yet — write a few to see emotional trends here.",
+            "source": "template",
+            "entry_count": 0,
         }
-        return out
-    except (ValueError, KeyError, TypeError):
-        return rule
+
+    recent = entries[-ANALYSIS_WINDOW:]
+    lines = "\n".join(f"- {e.text}" for e in recent)
+    prompt = f"Journal entries, oldest first:\n{lines}"
+
+    result = llm.complete(system=SYSTEM_PROMPT, prompt=prompt, max_tokens=600)
+    if result:
+        text, provider = result
+        parsed = _extract_json(text)
+        if parsed:
+            return {
+                "happy": _clamp(parsed.get("happy")),
+                "sad": _clamp(parsed.get("sad")),
+                "low_mood": _clamp(parsed.get("low_mood")),
+                "summary": str(parsed.get("summary") or "").strip()
+                or "Emotional tone analyzed from your recent entries.",
+                "source": provider,
+                "entry_count": len(recent),
+            }
+
+    return {
+        "happy": 0,
+        "sad": 0,
+        "low_mood": 0,
+        "summary": "Emotional tone analysis isn't available right now — your journal entries are still saved.",
+        "source": "unavailable",
+        "entry_count": len(recent),
+    }
