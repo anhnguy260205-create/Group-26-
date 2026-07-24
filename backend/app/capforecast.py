@@ -1,14 +1,9 @@
-"""Capacity forecasting.
+"""Capacity forecasting — the "predict & prevent" read on Capacity check-ins.
 
-Burnout is cumulative, not a single bad day — a Capacity line that falls a little every
-day for a week is the real warning sign. This module turns the recent run of Daily
-Check-ins into: a daily Capacity series, how many days it's been declining in a row, the
-recurring main driver, a naive projection of tomorrow, and a risk band. An LLM phrases the
-short forecast when reachable; a transparent rule model is the fallback so the page always
-says something grounded and never depends on the network.
-
-Explicitly NOT a clinical prediction — it's a "here's the pattern, here's what tends to
-come next" nudge so the caregiver can act *before* they hit the wall.
+Burnout is cumulative, so a Capacity line that falls a little every day for a week is the
+real warning sign. Turns recent check-ins into a daily series, a declining-streak count, a
+recurring driver, a tomorrow projection, and a risk band. LLM phrases the forecast when
+reachable; a rule model is the fallback. Not a clinical prediction.
 """
 
 import json
@@ -21,7 +16,6 @@ WINDOW_DAYS = 14
 
 
 def _daily_series(checkins: list[models.Checkin]) -> list[dict]:
-    """checkins oldest-first -> one point per day: average Capacity + that day's dominant driver."""
     buckets: dict = {}
     for c in checkins:
         buckets.setdefault(c.created_at.date(), []).append(c)
@@ -31,17 +25,12 @@ def _daily_series(checkins: list[models.Checkin]) -> list[dict]:
         caps = [x.capacity_score for x in items]
         drivers = [x.main_driver for x in items]
         series.append(
-            {
-                "date": day,
-                "capacity": round(sum(caps) / len(caps)),
-                "driver": Counter(drivers).most_common(1)[0][0],
-            }
+            {"date": day, "capacity": round(sum(caps) / len(caps)), "driver": Counter(drivers).most_common(1)[0][0]}
         )
     return series
 
 
 def _consecutive_decline(series: list[dict]) -> int:
-    """Trailing run of days where Capacity dropped versus the day before."""
     n = 0
     for i in range(len(series) - 1, 0, -1):
         if series[i]["capacity"] < series[i - 1]["capacity"]:
@@ -63,7 +52,6 @@ def _trend(series: list[dict]) -> str:
 
 
 def _predict(series: list[dict]) -> int | None:
-    """Project tomorrow's Capacity from the slope of the last few days."""
     if not series:
         return None
     if len(series) == 1:
@@ -85,39 +73,34 @@ def _risk(series: list[dict], decline_days: int, predicted: int | None) -> str:
     return "low"
 
 
-def _rule_forecast(
-    series: list[dict], risk: str, decline_days: int, recurring_driver: str | None
-) -> str:
+def _rule_forecast(series, risk, decline_days, driver) -> str:
     if not series:
         return "Not enough check-ins yet to spot a pattern — a few days in a row will unlock this."
-    driver_bit = f" The thread running through it is {recurring_driver.lower()}." if recurring_driver else ""
+    driver_bit = f" The thread running through it is {driver.lower()}." if driver else ""
     if risk == "high":
         streak = f"{decline_days} days running" if decline_days >= 2 else "recently"
         return (
-            f"Your capacity has been sliding {streak}.{driver_bit} If the pattern holds, "
-            "tomorrow is a high-strain day — worth protecting some rest or handing off a task now, "
-            "before it tips over."
+            f"Your capacity has been sliding {streak}.{driver_bit} If the pattern holds, tomorrow "
+            "is a high-strain day — worth protecting some rest or handing off a task now, before it tips over."
         )
     if risk == "moderate":
         return (
-            f"Your capacity is dipping.{driver_bit} It's not a crisis, but this is the point where "
-            "a small change today keeps it from becoming one this week."
+            f"Your capacity is dipping.{driver_bit} It's not a crisis, but this is the point where a "
+            "small change today keeps it from becoming one this week."
         )
     return (
-        f"Your capacity is holding.{driver_bit} Keep doing what's working — and keep checking in so "
-        "any drift shows up early."
+        f"Your capacity is holding.{driver_bit} Keep doing what's working — and keep checking in so any "
+        "drift shows up early."
     )
 
 
 SYSTEM_PROMPT = (
     "You read a family caregiver's recent daily Capacity scores (0-100, higher = more in the tank) "
-    "and gently forecast the near term for a support app. You are not a clinician and never "
-    "diagnose. Burnout is cumulative, so a multi-day decline matters more than one low day. "
-    "Return ONLY a JSON object, no other text, in exactly this shape: "
+    "and gently forecast the near term. Not a clinician, never diagnose. Burnout is cumulative, so a "
+    "multi-day decline matters more than one low day. Return ONLY a JSON object: "
     '{"predicted_capacity": <0-100 int>, "risk": "<low|moderate|high>", '
-    '"forecast": "<two or three warm, plain sentences: name the pattern, say what tends to come '
-    'next, and suggest one concrete action to take *now*. No numbers.>"}. '
-    "Ground it in the actual series and the recurring driver you are given."
+    '"forecast": "<two or three warm sentences: name the pattern, what tends to come next, one concrete '
+    'action to take now. No numbers.>"}. Ground it in the series and recurring driver given.'
 )
 
 
@@ -132,27 +115,16 @@ def _extract_json(text: str) -> dict | None:
 
 
 def analyze(checkins: list[models.Checkin]) -> dict:
-    """checkins oldest-first. Always returns a complete dict; never raises."""
     series = _daily_series(checkins)
-    points = [
-        {"date": s["date"].isoformat(), "capacity": s["capacity"], "driver": s["driver"]}
-        for s in series
-    ]
+    points = [{"date": s["date"].isoformat(), "capacity": s["capacity"], "driver": s["driver"]} for s in series]
 
     if not series:
         return {
-            "points": [],
-            "days_of_data": 0,
-            "avg_capacity": None,
-            "trend": "steady",
-            "consecutive_decline_days": 0,
-            "recurring_driver": None,
-            "predicted_capacity": None,
+            "points": [], "days_of_data": 0, "avg_capacity": None, "trend": "steady",
+            "consecutive_decline_days": 0, "recurring_driver": None, "predicted_capacity": None,
             "risk": "low",
-            "forecast": "No check-ins yet — do a Daily Check-in for a few days and your trend and "
-            "forecast appear here.",
-            "suggestions": scoring.RISK_SUGGESTIONS["low"],
-            "source": "rule",
+            "forecast": "No check-ins yet — do a Daily Check-in for a few days and your trend and forecast appear here.",
+            "suggestions": scoring.RISK_SUGGESTIONS["low"], "source": "rule",
         }
 
     decline_days = _consecutive_decline(series)
@@ -161,20 +133,17 @@ def analyze(checkins: list[models.Checkin]) -> dict:
     risk = _risk(series, decline_days, predicted)
     recurring_driver = Counter(s["driver"] for s in series).most_common(1)[0][0]
     avg_capacity = round(sum(s["capacity"] for s in series) / len(series))
-
     forecast = _rule_forecast(series, risk, decline_days, recurring_driver)
     source = "rule"
 
-    # Only ask the LLM once there's enough of a run to forecast anything meaningful.
     if len(series) >= 3:
         series_text = "\n".join(
-            f"- {s['date'].isoformat()}: capacity {s['capacity']}, main driver {s['driver']}"
-            for s in series
+            f"- {s['date'].isoformat()}: capacity {s['capacity']}, main driver {s['driver']}" for s in series
         )
         prompt = (
             f"Daily Capacity series (oldest first):\n{series_text}\n\n"
-            f"Consecutive declining days: {decline_days}. Recurring main driver: {recurring_driver}. "
-            f"Naive projection for tomorrow: {predicted}. Computed risk: {risk}."
+            f"Consecutive declining days: {decline_days}. Recurring driver: {recurring_driver}. "
+            f"Naive projection tomorrow: {predicted}. Computed risk: {risk}."
         )
         result = llm.complete(system=SYSTEM_PROMPT, prompt=prompt, max_tokens=600)
         if result:
@@ -192,15 +161,8 @@ def analyze(checkins: list[models.Checkin]) -> dict:
                 source = provider
 
     return {
-        "points": points,
-        "days_of_data": len(series),
-        "avg_capacity": avg_capacity,
-        "trend": trend,
-        "consecutive_decline_days": decline_days,
-        "recurring_driver": recurring_driver,
-        "predicted_capacity": predicted,
-        "risk": risk,
-        "forecast": forecast,
-        "suggestions": scoring.RISK_SUGGESTIONS[risk],
-        "source": source,
+        "points": points, "days_of_data": len(series), "avg_capacity": avg_capacity, "trend": trend,
+        "consecutive_decline_days": decline_days, "recurring_driver": recurring_driver,
+        "predicted_capacity": predicted, "risk": risk, "forecast": forecast,
+        "suggestions": scoring.RISK_SUGGESTIONS[risk], "source": source,
     }

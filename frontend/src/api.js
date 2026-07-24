@@ -20,6 +20,7 @@ export const api = {
   deleteTask: (id) => request(`/tasks/${id}`, { method: 'DELETE' }),
   assignTask: (id, assigned_to) =>
     request(`/tasks/${id}/assign`, { method: 'POST', body: JSON.stringify({ assigned_to }) }),
+  suggestDelegation: () => request('/delegation/suggest'),
 
   ingestStress: (reading) => request('/stress', { method: 'POST', body: JSON.stringify(reading) }),
   listStress: (limit = 100) => request(`/stress?limit=${limit}`),
@@ -36,6 +37,12 @@ export const api = {
   submitCheckin: (checkin) => request('/checkin', { method: 'POST', body: JSON.stringify(checkin) }),
   latestCheckin: () => request('/checkin/latest'),
   capacityForecast: (days = 14) => request(`/capacity/forecast?days=${days}`),
+  capacityOutlook: () => request('/capacity/outlook'),
+  rechargeToday: () => request('/recharge/today'),
+  setRechargeStatus: (id, status) =>
+    request(`/recharge/${id}/status`, { method: 'POST', body: JSON.stringify({ status }) }),
+  progress: () => request('/progress'),
+  companionOpening: () => request('/companion/opening'),
   stressTrends: (days = 7) => request(`/stress/trends?days=${days}`),
   burnoutRisk: (days = 7) => request(`/stress/burnout-risk?days=${days}`),
   stressForecast: (days = 3) => request(`/stress/forecast?days=${days}`),
@@ -46,18 +53,9 @@ export const api = {
   listJournal: (limit = 50) => request(`/journal?limit=${limit}`),
   createJournalEntry: (entry) => request('/journal', { method: 'POST', body: JSON.stringify(entry) }),
   journalSummary: () => request('/journal/summary'),
-  journalEmotions: () => request('/journal/emotions'),
 
   companionChat: (content) => request('/companion/chat', { method: 'POST', body: JSON.stringify({ content }) }),
   companionMessages: (limit = 50) => request(`/companion/messages?limit=${limit}`),
-  companionOpening: () => request('/companion/opening'),
-
-  rechargeToday: () => request('/recharge/today'),
-  setRechargeStatus: (id, status) =>
-    request(`/recharge/${id}/status`, { method: 'POST', body: JSON.stringify({ status }) }),
-
-  progress: () => request('/progress'),
-  suggestDelegation: () => request('/delegation/suggest'),
 
   listResources: (region) => request(`/resources${region ? `?region=${encodeURIComponent(region)}` : ''}`),
 }

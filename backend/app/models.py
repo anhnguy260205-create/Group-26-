@@ -30,19 +30,11 @@ class StressReading(Base):
     __tablename__ = "stress_readings"
 
     id = Column(Integer, primary_key=True, index=True)
-    source = Column(String(32), nullable=False)  # rppg | manual | checkin | expression
+    source = Column(String(32), nullable=False)  # rppg | manual
     heart_rate_bpm = Column(Float, nullable=True)
     respiration_rate_bpm = Column(Float, nullable=True)
     signal_quality = Column(Float, nullable=True)  # 0-1 confidence of the rPPG estimate
     self_reported_stress = Column(Integer, nullable=True)  # 1-10, used when source == manual
-    # Facial-expression probabilities (0-1 each, sum to ~1), used when source == expression
-    expr_neutral = Column(Float, nullable=True)
-    expr_happy = Column(Float, nullable=True)
-    expr_sad = Column(Float, nullable=True)
-    expr_angry = Column(Float, nullable=True)
-    expr_fearful = Column(Float, nullable=True)
-    expr_disgusted = Column(Float, nullable=True)
-    expr_surprised = Column(Float, nullable=True)
     stress_score = Column(Float, nullable=False)  # normalized 0-1, computed at ingest time
     # Daily Check-in components (set when source == "checkin"), kept so the Digital Twin
     # and Weekly Summary can name the *driver* of stress, not just the combined score.
@@ -51,6 +43,42 @@ class StressReading(Base):
     care_hours = Column(Float, nullable=True)
     had_me_time = Column(Boolean, nullable=True)
     created_at = Column(DateTime, nullable=False, default=utcnow)
+
+
+class Checkin(Base):
+    """A Daily Check-in: a journal line + five 0-10 sliders, scored into a Capacity reading
+    (0-100, higher = more in the tank) with its main driver and a reason. An optional fused
+    facial-tension reading (0-1) from the background camera nudges the score."""
+
+    __tablename__ = "checkins"
+
+    id = Column(Integer, primary_key=True, index=True)
+    journal = Column(String(500), nullable=True)
+    mood = Column(Integer, nullable=False)  # 0-10
+    sleep = Column(Integer, nullable=False)  # 0-10
+    energy = Column(Integer, nullable=False)  # 0-10
+    night_care = Column(Integer, nullable=False)  # 0-10 (burden)
+    free_time = Column(Integer, nullable=False)  # 0-10
+    face_stress = Column(Float, nullable=True)  # 0-1 fused facial-tension reading, if fresh
+    capacity_score = Column(Integer, nullable=False)  # 0-100
+    main_driver = Column(String(32), nullable=False)
+    reason = Column(String(1024), nullable=False)
+    source = Column(String(16), nullable=False, default="rule")  # foundry | anthropic | rule
+    created_at = Column(DateTime, nullable=False, default=utcnow)
+
+
+class RechargeAction(Base):
+    """A recommended recovery action (breathing / walk / early night) chosen from the day's
+    capacity driver. Marked Done or Skipped; Progress reads the Done ones the next day."""
+
+    __tablename__ = "recharge_actions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    kind = Column(String(32), nullable=False)  # breathing | walk | sleep_early
+    driver = Column(String(32), nullable=True)
+    status = Column(String(16), nullable=False, default="pending")  # pending | done | skipped
+    created_at = Column(DateTime, nullable=False, default=utcnow)
+    completed_at = Column(DateTime, nullable=True)
 
 
 class CareSession(Base):
@@ -88,42 +116,6 @@ class JournalEntry(Base):
     text = Column(String(500), nullable=False)
     mood = Column(Integer, nullable=True)  # 1 (great) - 5 (awful), same scale as check-in
     created_at = Column(DateTime, nullable=False, default=utcnow)
-
-
-class Checkin(Base):
-    """A Daily Check-in: a journal line + five 0-10 sliders, scored into a Capacity
-    reading (0-100, higher = more in the tank) with its main driver and a reason."""
-
-    __tablename__ = "checkins"
-
-    id = Column(Integer, primary_key=True, index=True)
-    journal = Column(String(500), nullable=True)
-    mood = Column(Integer, nullable=False)  # 0-10
-    sleep = Column(Integer, nullable=False)  # 0-10
-    energy = Column(Integer, nullable=False)  # 0-10
-    night_care = Column(Integer, nullable=False)  # 0-10 (burden)
-    free_time = Column(Integer, nullable=False)  # 0-10
-    face_stress = Column(Float, nullable=True)  # 0-1 fused facial-tension reading at check-in, if fresh
-    capacity_score = Column(Integer, nullable=False)  # 0-100
-    main_driver = Column(String(32), nullable=False)  # Mood | Energy | Sleep | Night Care | Free Time | Facial Signs
-    reason = Column(String(1024), nullable=False)
-    source = Column(String(16), nullable=False, default="rule")  # foundry | anthropic | rule
-    created_at = Column(DateTime, nullable=False, default=utcnow)
-
-
-class RechargeAction(Base):
-    """A recommended recovery action (breathing / walk / early night), suggested from the
-    day's capacity main driver. The caregiver marks it Done or Skipped; Progress reads the
-    Done ones the next day to show evidence that recharging helped."""
-
-    __tablename__ = "recharge_actions"
-
-    id = Column(Integer, primary_key=True, index=True)
-    kind = Column(String(32), nullable=False)  # breathing | walk | sleep_early
-    driver = Column(String(32), nullable=True)  # the main_driver that prompted it
-    status = Column(String(16), nullable=False, default="pending")  # pending | done | skipped
-    created_at = Column(DateTime, nullable=False, default=utcnow)
-    completed_at = Column(DateTime, nullable=True)
 
 
 class ChatMessage(Base):

@@ -22,7 +22,7 @@ function App() {
           <Route path="/me" element={<MePage />} />
           {/* Kept, but off the main nav. */}
           <Route path="/resources" element={<ResourceFinderPage />} />
-          {/* Removed screens redirect so old links/bookmarks still land somewhere sensible. */}
+          {/* Removed screens redirect so old links still land somewhere sensible. */}
           <Route path="/journal" element={<Navigate to="/checkin" replace />} />
           <Route path="/burnout" element={<Navigate to="/understand-me" replace />} />
         </Route>

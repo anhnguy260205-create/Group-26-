@@ -1,18 +1,9 @@
-import { useEffect, useState } from 'react'
-import { api } from '../api'
-
 const BASE_FACTORS = [
   { key: 'mood', label: 'Mood' },
   { key: 'sleep', label: 'Sleep' },
   { key: 'energy', label: 'Energy' },
   { key: 'night_care', label: 'Night Care' },
   { key: 'free_time', label: 'Free Time' },
-]
-
-const EMOTION_BARS = [
-  { key: 'happy', label: 'Happy / content', className: 'emotion-happy' },
-  { key: 'sad', label: 'Sad', className: 'emotion-sad' },
-  { key: 'low_mood', label: 'Low mood / heaviness', className: 'emotion-low-mood' },
 ]
 
 function factorRows(checkin) {
@@ -23,15 +14,9 @@ function factorRows(checkin) {
   return rows
 }
 
-// Why capacity is where it is: reason + factor breakdown + journal + emotional tone.
+// Why capacity is where it is: reason + factor breakdown + journal.
 export function WhySection({ checkin }) {
-  const [emotions, setEmotions] = useState(null)
-  useEffect(() => {
-    api.journalEmotions().then(setEmotions).catch(() => {})
-  }, [])
-
   if (!checkin) return null
-
   return (
     <div className="understand-section">
       <h2>Why</h2>
@@ -57,24 +42,6 @@ export function WhySection({ checkin }) {
         </p>
       )}
       {checkin.journal && <blockquote className="understand-journal">“{checkin.journal}”</blockquote>}
-
-      {emotions && emotions.entry_count > 0 && emotions.source !== 'unavailable' && (
-        <div className="emotion-block">
-          <h3 className="trend-heading">Emotional tone (from your journal)</h3>
-          <div className="emotion-bars">
-            {EMOTION_BARS.map((bar) => (
-              <div key={bar.key} className="emotion-bar-row">
-                <span className="emotion-bar-label">{bar.label}</span>
-                <span className="emotion-bar-track">
-                  <span className={`emotion-bar-fill ${bar.className}`} style={{ width: `${emotions[bar.key]}%` }} />
-                </span>
-                <span className="emotion-bar-value">{emotions[bar.key]}</span>
-              </div>
-            ))}
-          </div>
-          <p className="emotion-summary">{emotions.summary}</p>
-        </div>
-      )}
     </div>
   )
 }

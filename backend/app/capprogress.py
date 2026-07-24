@@ -1,10 +1,5 @@
-"""Progress / Evidence: the morning-after payoff.
-
-If the caregiver did a recharge action yesterday and their Capacity is higher today, show
-that as concrete evidence — "Breathing ✓, Capacity +8" — so recovery feels like it's
-working, not vanishing into the void. Pure rule-based: it just compares yesterday's done
-actions with the day-over-day capacity change.
-"""
+"""Progress / Evidence: if the caregiver did a recharge action yesterday and Capacity is up
+today, show it — "Breathing ✓, Capacity +8" — so recovery feels like it's working."""
 
 import datetime
 
@@ -51,23 +46,15 @@ def build(db: Session, now: datetime.datetime | None = None) -> dict:
 
     cap_today = _avg_capacity(db, today)
     cap_yesterday = _avg_capacity(db, yesterday)
-    capacity_change = (
-        cap_today - cap_yesterday if cap_today is not None and cap_yesterday is not None else None
-    )
+    capacity_change = cap_today - cap_yesterday if cap_today is not None and cap_yesterday is not None else None
 
-    has_evidence = bool(done_labels) and capacity_change is not None
-    if has_evidence and capacity_change > 0:
+    has_evidence = bool(done_labels) and capacity_change is not None and capacity_change > 0
+    if has_evidence:
         actions = ", ".join(f"{l} ✓" for l in done_labels)
-        evidence = (
-            f"Yesterday you did {actions}. Today your capacity is up {capacity_change} points — "
-            "that recovery is showing up."
-        )
+        evidence = f"Yesterday you did {actions}. Today your capacity is up {capacity_change} points — that recovery is showing up."
     elif done_labels and capacity_change is not None:
         actions = ", ".join(f"{l} ✓" for l in done_labels)
-        evidence = (
-            f"Yesterday you did {actions}. Capacity is about level today — recovery adds up over "
-            "days, so keep going."
-        )
+        evidence = f"Yesterday you did {actions}. Capacity is about level today — recovery adds up over days, so keep going."
     elif done_labels:
         actions = ", ".join(f"{l} ✓" for l in done_labels)
         evidence = f"Yesterday you did {actions}. Check in today to see how it moved your capacity."
@@ -75,11 +62,7 @@ def build(db: Session, now: datetime.datetime | None = None) -> dict:
         evidence = "No recharge actions logged yesterday yet — try one today and see it here tomorrow."
 
     return {
-        "yesterday": yesterday.isoformat(),
-        "done_actions": done_labels,
-        "capacity_yesterday": cap_yesterday,
-        "capacity_today": cap_today,
-        "capacity_change": capacity_change,
-        "has_evidence": has_evidence and capacity_change > 0,
-        "evidence": evidence,
+        "yesterday": yesterday.isoformat(), "done_actions": done_labels,
+        "capacity_yesterday": cap_yesterday, "capacity_today": cap_today,
+        "capacity_change": capacity_change, "has_evidence": has_evidence, "evidence": evidence,
     }

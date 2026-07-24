@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
 
-// Coordinate: the "ai agent" that helps hand off care tasks to family. It suggests who to
-// ask and drafts the message; you add tasks and assign them here. Links out to Resource
-// Finder for outside help.
+// Coordinate: helps hand off care tasks to family. Suggests who to ask and drafts the
+// message; you add tasks and assign them here. (An AI agent from a knowledge base can slot
+// in later — for now it uses the rule-based delegation suggester.)
 export function CoordinateCard() {
   const [tasks, setTasks] = useState([])
   const [suggestions, setSuggestions] = useState([])
@@ -52,12 +52,7 @@ export function CoordinateCard() {
       <p className="section-sub">Hand off what you can — I'll suggest who to ask and word it for you.</p>
 
       <form className="coordinate-add" onSubmit={addTask}>
-        <input
-          type="text"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Add a care task to share…"
-        />
+        <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Add a care task to share…" />
         <button type="submit" disabled={adding || !title.trim()}>
           Add
         </button>
@@ -77,9 +72,7 @@ export function CoordinateCard() {
         </div>
       )}
 
-      {suggestions.length === 0 && pending.length === 0 && (
-        <p className="empty">Nothing to coordinate right now.</p>
-      )}
+      {suggestions.length === 0 && pending.length === 0 && <p className="empty">Nothing to coordinate right now.</p>}
 
       {assigned.length > 0 && (
         <ul className="coordinate-assigned">

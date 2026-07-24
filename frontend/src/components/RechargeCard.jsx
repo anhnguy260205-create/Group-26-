@@ -17,7 +17,7 @@ export function RechargeCard() {
       const updated = await api.setRechargeStatus(id, status)
       setActions((prev) => prev.map((a) => (a.id === id ? updated : a)))
     } catch {
-      // leave as-is on failure
+      // leave as-is
     } finally {
       setBusy(null)
     }
@@ -46,12 +46,7 @@ export function RechargeCard() {
                   <button type="button" disabled={busy === a.id} onClick={() => update(a.id, 'done')}>
                     Done
                   </button>
-                  <button
-                    type="button"
-                    className="ghost"
-                    disabled={busy === a.id}
-                    onClick={() => update(a.id, 'skipped')}
-                  >
+                  <button type="button" className="ghost" disabled={busy === a.id} onClick={() => update(a.id, 'skipped')}>
                     Skip
                   </button>
                 </div>

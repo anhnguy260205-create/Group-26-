@@ -2,7 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import { CoordinateCard } from '../components/CoordinateCard'
 import { RechargeCard } from '../components/RechargeCard'
+import { YesterdayProgress } from '../components/YesterdayProgress'
 
+// AI Copilot = proactive opening line + three cards (Recharge & Reconnect, Coordinate,
+// Progress) + a warm chat.
 export function CompanionPage() {
   const [opening, setOpening] = useState(null)
   const [messages, setMessages] = useState([])
@@ -26,26 +29,14 @@ export function CompanionPage() {
     setInput('')
     setSending(true)
     const optimisticId = `pending-${Date.now()}`
-    setMessages((prev) => [
-      ...prev,
-      { id: optimisticId, role: 'user', content, created_at: new Date().toISOString() },
-    ])
+    setMessages((prev) => [...prev, { id: optimisticId, role: 'user', content, created_at: new Date().toISOString() }])
     try {
       const res = await api.companionChat(content)
-      setMessages((prev) => [
-        ...prev.filter((m) => m.id !== optimisticId),
-        res.user_message,
-        res.assistant_message,
-      ])
+      setMessages((prev) => [...prev.filter((m) => m.id !== optimisticId), res.user_message, res.assistant_message])
     } catch {
       setMessages((prev) => [
         ...prev.filter((m) => m.id !== optimisticId),
-        {
-          id: `error-${Date.now()}`,
-          role: 'assistant',
-          content: "I couldn't reach the server just now — please try again.",
-          created_at: new Date().toISOString(),
-        },
+        { id: `error-${Date.now()}`, role: 'assistant', content: "I couldn't reach the server just now — please try again.", created_at: new Date().toISOString() },
       ])
     } finally {
       setSending(false)
@@ -61,6 +52,7 @@ export function CompanionPage() {
 
       <RechargeCard />
       <CoordinateCard />
+      <YesterdayProgress />
 
       <div className="understand-section">
         <h2>Talk it through</h2>
@@ -75,12 +67,7 @@ export function CompanionPage() {
         </div>
 
         <form onSubmit={handleSend} className="chat-input-row">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Type how you're feeling…"
-          />
+          <input type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder="Type how you're feeling…" />
           <button type="submit" disabled={sending || !input.trim()}>
             Send
           </button>

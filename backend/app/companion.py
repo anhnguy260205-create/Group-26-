@@ -10,7 +10,7 @@ with a templated fallback so the companion always says something supportive.
 
 from sqlalchemy.orm import Session
 
-from . import forecast, llm, models, resources
+from . import capforecast, llm, models, resources
 
 CRISIS_KEYWORDS = [
     "kill myself",
@@ -75,16 +75,12 @@ def _build_context(db: Session) -> str:
 
 
 def opening_line(db: Session) -> tuple[str, str]:
-    """Proactive first line for the Copilot, grounded in the capacity trend — e.g.
-    'Today looks harder than yesterday.' Returns (line, source). LLM-warmed when possible."""
+    """Proactive first line grounded in the capacity trend — e.g. 'Today looks harder than
+    yesterday.' Returns (line, source)."""
     checkins = db.query(models.Checkin).order_by(models.Checkin.created_at).all()
-    data = forecast.analyze(checkins) if checkins else None
-
+    data = capforecast.analyze(checkins) if checkins else None
     points = data["points"] if data else []
-    if len(points) >= 2:
-        delta = points[-1]["capacity"] - points[-2]["capacity"]
-    else:
-        delta = 0
+    delta = points[-1]["capacity"] - points[-2]["capacity"] if len(points) >= 2 else 0
 
     if not points:
         base = "I'm here whenever you want to check in. How are you doing right now?"
@@ -96,21 +92,17 @@ def opening_line(db: Session) -> tuple[str, str]:
         base = "Steady day so far. How are you holding up right now?"
 
     driver = data["recurring_driver"] if data else None
-    if data and forecast and llm.is_configured() and points:
+    if data and points and llm.is_configured():
         prompt = (
-            f"Caregiver's capacity yesterday->today changed by {delta} points "
-            f"(negative = worse). Recurring strain: {driver or 'none clear'}. "
-            "Write ONE short, warm opening line (max 20 words) to greet them, naming whether "
-            "today looks harder or easier than yesterday. No numbers, no diagnosis."
+            f"Caregiver's capacity yesterday->today changed by {delta} points (negative = worse). "
+            f"Recurring strain: {driver or 'none clear'}. Write ONE short, warm opening line (max 20 "
+            "words) greeting them, naming whether today looks harder or easier than yesterday. No numbers."
         )
         result = llm.complete(
-            system="You are a warm, brief companion for family caregivers.",
-            prompt=prompt,
-            max_tokens=200,
+            system="You are a warm, brief companion for family caregivers.", prompt=prompt, max_tokens=200
         )
         if result:
             return result[0], result[1]
-
     return base, "rule"
 
 
@@ -143,9 +135,7 @@ def reply(db: Session, user_text: str) -> tuple[str, str]:
             "feelings, never minimize them, and never give medical advice or diagnoses."
         ),
         prompt=prompt,
-        # Reasoning models (e.g. gpt-oss via Foundry) spend tokens "thinking" before
-        # writing the reply — too small a budget truncates before any content comes out.
-        max_tokens=500,
+        max_tokens=180,
     )
     if result:
         text, provider = result

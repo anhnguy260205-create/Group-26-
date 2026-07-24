@@ -10,7 +10,6 @@ export function YesterdayProgress() {
   }, [])
 
   if (!progress) return null
-
   const change = progress.capacity_change
 
   return (

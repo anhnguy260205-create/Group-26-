@@ -72,13 +72,6 @@ class StressReading(BaseModel):
     respiration_rate_bpm: Optional[float] = None
     signal_quality: Optional[float] = None
     self_reported_stress: Optional[int] = None
-    expr_neutral: Optional[float] = None
-    expr_happy: Optional[float] = None
-    expr_sad: Optional[float] = None
-    expr_angry: Optional[float] = None
-    expr_fearful: Optional[float] = None
-    expr_disgusted: Optional[float] = None
-    expr_surprised: Optional[float] = None
     stress_score: float
     created_at: datetime.datetime
 
@@ -191,12 +184,15 @@ class CheckinOut(BaseModel):
     energy: int
     night_care: int
     free_time: int
-    face_stress: Optional[float] = None  # 0-1 fused facial-tension reading, if one was fresh
+    face_stress: Optional[float] = None
     capacity_score: int  # 0-100, higher = more capacity left
     main_driver: str
     reason: str
     source: Literal["foundry", "anthropic", "rule"]
     created_at: datetime.datetime
+
+
+# ---- Capacity forecast ----
 
 
 class CapacityPoint(BaseModel):
@@ -219,65 +215,17 @@ class CapacityForecast(BaseModel):
     source: Literal["foundry", "anthropic", "rule"]
 
 
-class BurnoutRisk(BaseModel):
-    level: Literal["low", "moderate", "high"]
-    avg_stress_score: Optional[float] = None
+# ---- Capacity outlook (causes + consequences prediction) ----
+
+
+class CapacityOutlook(BaseModel):
+    risk: Literal["low", "moderate", "high"]
+    recurring_driver: Optional[str] = None
+    consecutive_decline_days: int
     days_of_data: int
-    suggestions: list[str]
-
-
-# ---- Journal ----
-
-
-class JournalEntryCreate(BaseModel):
-    text: str = Field(min_length=1, max_length=500)
-    mood: Optional[int] = Field(default=None, ge=1, le=5)
-
-
-class JournalEntryOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    text: str
-    mood: Optional[int] = None
-    created_at: datetime.datetime
-
-
-class JournalSummary(BaseModel):
-    summary: str
-    source: Literal["foundry", "anthropic", "template"]
-    entry_count: int
-
-
-class EmotionAnalysis(BaseModel):
-    happy: int = Field(ge=0, le=100)
-    sad: int = Field(ge=0, le=100)
-    low_mood: int = Field(ge=0, le=100)  # descriptive tone signal, not a diagnosis
-    summary: str
-    source: Literal["foundry", "anthropic", "template", "unavailable"]
-    entry_count: int
-
-
-# ---- AI Companion ----
-
-
-class ChatMessageCreate(BaseModel):
-    content: str = Field(min_length=1, max_length=2000)
-
-
-class ChatMessageOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    role: Literal["user", "assistant"]
-    content: str
-    created_at: datetime.datetime
-
-
-class ChatReply(BaseModel):
-    user_message: ChatMessageOut
-    assistant_message: ChatMessageOut
-    source: Literal["foundry", "anthropic", "template", "rule"]
+    causes: str
+    consequences: str
+    source: Literal["foundry", "anthropic", "rule"]
 
 
 # ---- Recharge & Reconnect ----
@@ -316,6 +264,93 @@ class ProgressOut(BaseModel):
 class OpeningLine(BaseModel):
     opening: str
     source: Literal["foundry", "anthropic", "rule"]
+
+
+class BurnoutRisk(BaseModel):
+    level: Literal["low", "moderate", "high"]
+    avg_stress_score: Optional[float] = None
+    days_of_data: int
+    suggestions: list[str]
+
+
+# ---- Journal ----
+
+
+class JournalEntryCreate(BaseModel):
+    text: str = Field(min_length=1, max_length=500)
+    mood: Optional[int] = Field(default=None, ge=1, le=5)
+
+
+class JournalEntryOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    text: str
+    mood: Optional[int] = None
+    created_at: datetime.datetime
+
+
+class JournalSummary(BaseModel):
+    summary: str
+    source: Literal["foundry", "anthropic", "template"]
+    entry_count: int
+
+
+# ---- AI Companion ----
+
+
+class ChatMessageCreate(BaseModel):
+    content: str = Field(min_length=1, max_length=2000)
+
+
+class ChatMessageOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    role: Literal["user", "assistant"]
+    content: str
+    created_at: datetime.datetime
+
+
+class ChatReply(BaseModel):
+    user_message: ChatMessageOut
+    assistant_message: ChatMessageOut
+    source: Literal["foundry", "anthropic", "template", "rule"]
+
+
+# ---- Emotion analysis ----
+
+
+class EmotionRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=2000)
+
+
+class EmotionResult(BaseModel):
+    emotion: str
+    stress: Literal["low", "moderate", "high"]
+    burnout_risk: Literal["low", "moderate", "high"]
+    source: Literal["foundry", "anthropic", "rule"]
+
+
+# ---- Weekly summary ----
+
+
+class WeeklySummary(BaseModel):
+    summary: str
+    source: Literal["foundry", "anthropic", "template"]
+    days_of_data: int
+    sleep_trend: Literal["up", "down", "flat"]
+    stress_trend: Literal["up", "down", "flat"]
+    mood_trend: Literal["up", "down", "flat"]
+    main_driver: Optional[str] = None
+
+
+# ---- Daily suggestions ----
+
+
+class DailySuggestions(BaseModel):
+    suggestions: list[str]
+    based_on_checkin: bool
 
 
 # ---- Resource Finder ----

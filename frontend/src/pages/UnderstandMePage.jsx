@@ -3,13 +3,14 @@ import { Link } from 'react-router-dom'
 import { api } from '../api'
 import { CapacitySection } from '../components/CapacitySection'
 import { ForecastSection } from '../components/ForecastSection'
+import { OutlookSection } from '../components/OutlookSection'
 import { WhySection } from '../components/WhySection'
 
-// Understand Me = the full read on the caregiver: today's Capacity, the near-term forecast
-// with the burnout trend + risk, and why capacity is where it is (factors + emotional tone).
+// Understand Me = the full read: today's Capacity, the near-term forecast with the burnout
+// trend + risk, and why capacity is where it is.
 export function UnderstandMePage() {
   const [checkin, setCheckin] = useState(null)
-  const [state, setState] = useState('loading') // loading | ready | empty
+  const [state, setState] = useState('loading')
 
   useEffect(() => {
     api
@@ -36,8 +37,8 @@ export function UnderstandMePage() {
         <h1>Understand Me</h1>
         <p className="page-subtitle">Your capacity, where it's heading, and why.</p>
         <p className="empty">
-          No check-in yet. <Link to="/checkin">Do a Daily Check-in</Link> and your reading — plus
-          the burnout trend and forecast — shows up here.
+          No check-in yet. <Link to="/checkin">Do a Daily Check-in</Link> and your reading — plus the
+          burnout trend and forecast — shows up here.
         </p>
       </div>
     )
@@ -47,9 +48,9 @@ export function UnderstandMePage() {
     <div className="page understand-page">
       <h1>Understand Me</h1>
       <p className="page-subtitle">Your capacity, where it's heading, and why.</p>
-
       <CapacitySection checkin={checkin} />
       <ForecastSection />
+      <OutlookSection />
       <WhySection checkin={checkin} />
     </div>
   )

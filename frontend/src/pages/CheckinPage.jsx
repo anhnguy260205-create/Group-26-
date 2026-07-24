@@ -2,8 +2,6 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 
-// Each slider is 0-10. Endpoint labels frame what low vs high means so the numbers
-// stay meaningful without a legend.
 const SLIDERS = [
   { key: 'mood', label: 'Mood', low: 'Terrible', high: 'Great' },
   { key: 'sleep', label: 'Sleep', low: 'No rest', high: 'Fully rested' },
@@ -35,11 +33,9 @@ export function CheckinPage() {
       const res = await api.submitCheckin({ journal: journal.trim(), ...sliders })
       setResult(res)
     } catch (err) {
-      // Surface failures instead of silently doing nothing — a 500 here usually means the
-      // backend DB is missing a newer column (run backend/migrate.py or delete app.db).
       setError(
-        "Couldn't save your check-in — the backend rejected it. Check that the server is " +
-          'running and its database is up to date.'
+        "Couldn't save your check-in — the backend rejected it. Make sure the server is running " +
+          'and its database is up to date (delete app.db or run migrate.py).'
       )
       // eslint-disable-next-line no-console
       console.error('submitCheckin failed:', err)
@@ -68,9 +64,10 @@ export function CheckinPage() {
           <strong>{result.main_driver}</strong>
         </div>
         <p className="capacity-reason">{result.reason}</p>
-        <p className="checkin-note">
-          A support tool, not a diagnosis — just a way to notice how things are trending.
-        </p>
+        {result.face_stress != null && (
+          <p className="checkin-note">📷 A live facial reading was blended into this score.</p>
+        )}
+        <p className="checkin-note">A support tool, not a diagnosis — just a way to notice how things are trending.</p>
         <div className="capacity-actions">
           <button type="button" onClick={() => navigate('/understand-me')}>
             Understand me
@@ -123,10 +120,13 @@ export function CheckinPage() {
           ))}
         </div>
 
+        <p className="checkin-note">
+          📷 If your camera is on, a quick facial reading is blended in automatically — no photo is stored.
+        </p>
+
         <button type="submit" disabled={submitting}>
           {submitting ? 'Scoring…' : 'Submit check-in'}
         </button>
-
         {error && <p className="checkin-error">{error}</p>}
       </form>
     </div>

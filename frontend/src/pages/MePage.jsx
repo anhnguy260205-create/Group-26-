@@ -44,21 +44,11 @@ export function MePage() {
         </label>
         <label className="field">
           Who you're caring for
-          <input
-            type="text"
-            value={profile.caringFor}
-            onChange={(e) => set('caringFor', e.target.value)}
-            placeholder="e.g. my mother"
-          />
+          <input type="text" value={profile.caringFor} onChange={(e) => set('caringFor', e.target.value)} placeholder="e.g. my mother" />
         </label>
         <label className="field">
           Region (for support resources)
-          <input
-            type="text"
-            value={profile.region}
-            onChange={(e) => set('region', e.target.value)}
-            placeholder="e.g. Singapore"
-          />
+          <input type="text" value={profile.region} onChange={(e) => set('region', e.target.value)} placeholder="e.g. Singapore" />
         </label>
         <button type="submit">Save</button>
         {saved && <span className="me-saved">Saved ✓</span>}
@@ -67,11 +57,11 @@ export function MePage() {
       <div className="understand-section">
         <h2>Your data</h2>
         <p className="section-sub">
-          Check-ins, capacity, and journal entries stay on your own backend. Camera readings are
-          used only to enrich your capacity score and are never stored as images.
+          Check-ins, capacity, and journal entries stay on your own backend. Camera readings only
+          enrich your capacity score and are never stored as images.
         </p>
         <p className="section-sub">
-          Manage care handoffs in <Link to="/companion">AI Copilot</Link>, or find outside help in{' '}
+          Coordinate care in <Link to="/companion">AI Copilot</Link>, or find outside help in{' '}
           <Link to="/resources">Resource Finder</Link>.
         </p>
       </div>
@@ -79,8 +69,8 @@ export function MePage() {
       <div className="understand-section">
         <h2>About</h2>
         <p className="section-sub">
-          This is a support tool for family caregivers — not a medical device, and not a diagnosis.
-          If you're in crisis, please reach out to local emergency services or a crisis line.
+          A support tool for family caregivers — not a medical device, and not a diagnosis. If you're
+          in crisis, please reach out to local emergency services or a crisis line.
         </p>
       </div>
     </div>
