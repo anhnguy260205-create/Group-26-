@@ -219,6 +219,7 @@ __marimo__/
 
 # SQLite
 *.db
+*.db-journal
 *.sqlite3
 
 # Node / frontend

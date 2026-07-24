@@ -21,16 +21,20 @@ uvicorn app.main:app --reload
 
 API runs at http://127.0.0.1:8000, docs at http://127.0.0.1:8000/docs. Uses SQLite (`backend/app.db`, auto-created).
 
-Optional: the burnout reasoning and closing reflection can be phrased by an LLM instead of
-the built-in templated text. `backend/app/llm.py` tries providers in order and falls back
-to templates if none are configured or reachable — the app never depends on an LLM being up:
+Optional LLM (for the burnout reasoning and closing reflection wording only — never
+for the intervene / don't-intervene decision). `backend/app/llm.py` tries providers in
+order and falls back to templates if none are configured or reachable — the app never
+depends on an LLM being up. Copy `backend/.env.example` to `backend/.env` and fill in
+one provider:
 
-1. **Microsoft Foundry** — set `FOUNDRY_ENDPOINT` (the full chat-completions URL from the
-   deployment's "Consume" tab in the Foundry portal) and `FOUNDRY_API_KEY`. Set
-   `FOUNDRY_MODEL` too if your endpoint is a unified multi-model one that requires a
-   `model` field in the request body.
-2. **Anthropic** — set `ANTHROPIC_API_KEY` to fall back to Claude directly if Foundry
-   isn't configured or a call to it fails.
+- **Microsoft Foundry (primary):** set `AZURE_AI_ENDPOINT`, `AZURE_AI_API_KEY`, and
+  `AZURE_AI_MODEL` (default `claude-sonnet-4-5`). Uses Foundry's OpenAI-compatible
+  chat-completions surface.
+- **Anthropic direct (fallback):** set `ANTHROPIC_API_KEY`. Used only if the Foundry
+  vars are absent, so the app still runs without an Azure resource.
+
+Everything works with all of these unset — the app falls back to built-in templated
+text and never depends on the LLM being reachable.
 
 Every LLM-backed response reports which provider actually answered — `GET
 /threshold/check` returns `reasoning_source` (`"foundry"` / `"anthropic"` / `"rule"`) and

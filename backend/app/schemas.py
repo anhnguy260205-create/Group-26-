@@ -22,7 +22,23 @@ class Task(TaskBase):
     id: int
     done: bool
     done_at: Optional[datetime.datetime] = None
+    assigned_to: Optional[str] = None
     created_at: datetime.datetime
+
+
+class TaskAssign(BaseModel):
+    assigned_to: Optional[str] = None  # None un-assigns
+
+
+# ---- Smart delegation ----
+
+
+class DelegationSuggestion(BaseModel):
+    task_id: int
+    title: str
+    suggested_to: str
+    message: str
+    message_source: Literal["foundry", "anthropic", "template"]
 
 
 # ---- Stress ----
@@ -47,6 +63,15 @@ class StressReading(BaseModel):
     self_reported_stress: Optional[int] = None
     stress_score: float
     created_at: datetime.datetime
+
+
+# ---- Stress trends ----
+
+
+class StressTrendPoint(BaseModel):
+    date: datetime.date
+    avg_stress_score: float
+    count: int
 
 
 # ---- Threshold / AI brain ----
