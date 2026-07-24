@@ -4,7 +4,7 @@ from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
-from . import models, reflection, schemas, scoring
+from . import delegation, models, reflection, schemas, scoring
 from .database import Base, engine, get_db
 
 Base.metadata.create_all(bind=engine)
@@ -67,6 +67,28 @@ def delete_task(task_id: int, db: Session = Depends(get_db)):
 
 
 # ---------------------------------------------------------------------------
+# Smart task delegation (bonus)
+# ---------------------------------------------------------------------------
+
+
+@app.post("/tasks/{task_id}/assign", response_model=schemas.Task)
+def assign_task(task_id: int, body: schemas.TaskAssign, db: Session = Depends(get_db)):
+    task = db.query(models.Task).filter(models.Task.id == task_id).first()
+    if task is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+    task.assigned_to = body.assigned_to
+    db.commit()
+    db.refresh(task)
+    return task
+
+
+@app.get("/delegation/suggest", response_model=list[schemas.DelegationSuggestion])
+def suggest_delegation(db: Session = Depends(get_db)):
+    """AI-suggested tasks to hand off to family, each with a ready-to-send ask."""
+    return delegation.suggest(db)
+
+
+# ---------------------------------------------------------------------------
 # Stress sensing
 # ---------------------------------------------------------------------------
 
@@ -108,6 +130,29 @@ def list_stress_readings(limit: int = 100, db: Session = Depends(get_db)):
         .limit(limit)
         .all()
     )
+
+
+@app.get("/stress/trends", response_model=list[schemas.StressTrendPoint])
+def stress_trends(days: int = 7, db: Session = Depends(get_db)):
+    """Daily average stress score over the last `days` — powers the trends chart."""
+    since = datetime.datetime.utcnow() - datetime.timedelta(days=days)
+    readings = (
+        db.query(models.StressReading)
+        .filter(models.StressReading.created_at >= since)
+        .order_by(models.StressReading.created_at)
+        .all()
+    )
+    buckets: dict[datetime.date, list[float]] = {}
+    for r in readings:
+        buckets.setdefault(r.created_at.date(), []).append(r.stress_score)
+    return [
+        schemas.StressTrendPoint(
+            date=day,
+            avg_stress_score=round(sum(scores) / len(scores), 3),
+            count=len(scores),
+        )
+        for day, scores in sorted(buckets.items())
+    ]
 
 
 # ---------------------------------------------------------------------------

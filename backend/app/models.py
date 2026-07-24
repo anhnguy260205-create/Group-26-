@@ -20,6 +20,7 @@ class Task(Base):
     due_at = Column(DateTime, nullable=True)
     done = Column(Boolean, nullable=False, default=False)
     done_at = Column(DateTime, nullable=True)
+    assigned_to = Column(String(128), nullable=True)  # delegated family member, if any
     created_at = Column(DateTime, nullable=False, default=utcnow)
 
 
