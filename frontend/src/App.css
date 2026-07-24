@@ -635,14 +635,14 @@ legend {
 }
 
 .journal-summary {
-  background: var(--plum-light);
+  background: var(--moss-light);
   border-radius: 10px;
   padding: 16px 18px;
   margin-bottom: 24px;
 }
 
 .journal-summary h2 {
-  color: var(--plum);
+  color: var(--moss);
   font-size: 15px;
   margin-bottom: 6px;
 }
