@@ -45,6 +45,8 @@ export function CoordinateCard() {
 
   const pending = tasks.filter((t) => !t.done && !t.assigned_to)
   const assigned = tasks.filter((t) => t.assigned_to)
+  const assignedMembers = new Set(assigned.map((t) => t.assigned_to))
+  const visibleSuggestions = suggestions.filter((s) => !assignedMembers.has(s.suggested_to))
 
   return (
     <div className="understand-section">
@@ -58,9 +60,9 @@ export function CoordinateCard() {
         </button>
       </form>
 
-      {suggestions.length > 0 && (
+      {visibleSuggestions.length > 0 && (
         <div className="coordinate-suggestions">
-          {suggestions.map((s) => (
+          {visibleSuggestions.map((s) => (
             <div key={s.task_id} className="coordinate-suggestion">
               <div className="coordinate-task">{s.title}</div>
               <p className="coordinate-message">“{s.message}”</p>
@@ -72,7 +74,7 @@ export function CoordinateCard() {
         </div>
       )}
 
-      {suggestions.length === 0 && pending.length === 0 && <p className="empty">Nothing to coordinate right now.</p>}
+      {visibleSuggestions.length === 0 && pending.length === 0 && <p className="empty">Nothing to coordinate right now.</p>}
 
       {assigned.length > 0 && (
         <ul className="coordinate-assigned">
