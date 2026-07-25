@@ -876,3 +876,73 @@ button.ghost { background: transparent; color: var(--moss); border: 1px solid va
   margin: 0 0 6px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-soft);
 }
 .outlook-block p { margin: 0; line-height: 1.6; color: var(--ink); }
+
+/* ---- Multi-day projection (Forecast) ---- */
+
+/* The projection chain: today -> next few days, read left to right. Deliberately styled
+   as a single sentence-like row rather than separate metric cards, because the story is
+   the direction of travel, not any one number in it. */
+.projection-chain {
+  display: flex; align-items: flex-end; flex-wrap: wrap; gap: 4px;
+  margin: 4px 0 14px;
+}
+.projection-step {
+  display: flex; align-items: baseline; gap: 6px;
+  padding: 4px 8px; border-radius: 8px;
+}
+.projection-step.now { background: var(--moss-light); }
+.projection-step.risk { background: #f6ddd5; }
+.projection-step.risk .projection-value { color: #b3543f; }
+.projection-value { font-size: 24px; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+.projection-label { font-size: 12px; color: var(--ink-soft); }
+.projection-arrow { color: var(--ink-soft); font-size: 16px; margin-right: 2px; }
+
+.forecast-riskday {
+  margin: 0 0 14px; padding: 10px 14px; border-radius: 8px;
+  background: var(--amber-light); color: var(--ink); line-height: 1.5;
+}
+.forecast-pattern {
+  margin: 10px 0; padding: 10px 14px; border-left: 3px solid var(--amber);
+  color: var(--ink-soft); line-height: 1.6; font-style: italic;
+}
+
+/* Chart: low-capacity reference line and projected-day ticks */
+.trend-lowline { stroke: #b3543f; stroke-width: 1; stroke-dasharray: 3 4; opacity: 0.55; }
+.trend-lowline-label { fill: #b3543f; font-size: 10px; opacity: 0.8; }
+.trend-tick { fill: var(--ink-soft); font-size: 10px; }
+.trend-dot-risk { fill: #b3543f; stroke: #b3543f; }
+
+/* ---- Recharge reasoning ---- */
+
+/* Shown once above the action list: why *these* actions, for *this* cause. This is the
+   difference between a recommendation and a fixed prompt, so it gets prominence. */
+.recharge-why {
+  margin: 0 0 14px; padding: 12px 16px; border-radius: 8px;
+  background: var(--moss-light); color: var(--moss); line-height: 1.55;
+}
+.recharge-because { font-size: 12px; color: var(--ink-soft); opacity: 0.85; margin-top: 2px; }
+
+/* ---- Copilot opening states ---- */
+
+/* When capacity is low the opening changes register: it stops asking and starts relieving.
+   The colour shift is the visual cue that the app noticed. */
+.copilot-opening-line { margin: 0; }
+.copilot-opening.mode-protect { background: var(--amber-light); color: var(--ink); }
+.copilot-opening.mode-depleted { background: #f6ddd5; color: #7c3a2c; }
+.copilot-action {
+  margin-top: 12px; padding: 8px 16px; border-radius: 999px;
+  border: 1px solid currentColor; background: transparent; color: inherit;
+  font: inherit; font-weight: 600; cursor: pointer;
+}
+.copilot-action:hover { background: rgba(255, 255, 255, 0.45); }
+.copilot-note {
+  margin: 12px 0 0; padding-top: 12px; border-top: 1px solid rgba(0, 0, 0, 0.08);
+  font-size: 15px; line-height: 1.55; font-style: italic; opacity: 0.9;
+}
+
+/* Route out to external support. Kept on Home after the Coordinate card was removed —
+   family hand-offs have a ceiling, and this is the door past it. */
+.outside-help {
+  margin-top: 28px; padding-top: 18px; border-top: 1px solid var(--line);
+  font-size: 14px; color: var(--ink-soft);
+}

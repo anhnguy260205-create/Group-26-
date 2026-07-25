@@ -97,7 +97,7 @@ def _narrate(trend: str, driver_key: str | None, current: float, projected: floa
     )
     result = llm.complete(
         system=(
-            "You are a caring, brief companion for family caregivers. You forecast stress to "
+            "You are a caring, brief companion for caregivers. You forecast stress to "
             "help them act early. You never diagnose or give medical advice."
         ),
         prompt=prompt,

@@ -19,9 +19,13 @@ Environment variables:
   AZURE_AI_ENDPOINT     Resource base (e.g. "https://<resource>.services.ai.azure.com")
                         or a full chat-completions URL — normalised below either way.
   AZURE_AI_API_KEY      Key for that Foundry resource.
-  AZURE_AI_MODEL        Model / deployment name served by your resource
-                        (default: claude-sonnet-4-5). Examples: claude-sonnet-4-5,
-                        claude-haiku-4-5, gpt-4o, phi-4.
+  AZURE_AI_MODEL        Model / deployment served by your resource for the "deep" tier --
+                        reasoning-heavy calls like the capacity forecast.
+                        (default: claude-sonnet-4-5). Examples: claude-sonnet-4-5, gpt-4o.
+  AZURE_AI_MODEL_FAST   Model / deployment for the "fast" tier -- short conversational text
+                        like the Companion's opening line, where latency matters more than
+                        depth. (default: claude-haiku-4-5). Optional; falls back to the deep
+                        model if unset, so a single-deployment resource still works.
   AZURE_AI_API_VERSION  Only needed for classic Azure OpenAI deployment endpoints
                         (e.g. 2024-10-21). Leave unset on the newer /openai/v1 surface.
 
@@ -38,7 +42,14 @@ import urllib.request
 TIMEOUT_SECONDS = 8
 
 # --- Microsoft Foundry ---------------------------------------------------------
+# Model routing. Both tiers hit the SAME Foundry endpoint and key -- only the model name
+# changes -- so short interactive text can be served by a small fast model while the
+# reasoning-heavy forecast goes to a larger one, without a second provider or second
+# integration. Callers pick a tier; nothing else about the call changes.
 FOUNDRY_DEFAULT_MODEL = "claude-sonnet-4-5"
+FOUNDRY_FAST_MODEL = "claude-haiku-4-5"
+DEEP_TIER = "deep"
+FAST_TIER = "fast"
 
 # --- Anthropic direct (fallback) ------------------------------------------------
 ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
@@ -67,6 +78,30 @@ def active_provider() -> str:
     if _anthropic_configured():
         return "anthropic"
     return "none"
+
+
+def _foundry_model(tier: str) -> str:
+    """Resolve a tier to a concrete deployment name.
+
+    The fast tier deliberately falls back to the deep model when AZURE_AI_MODEL_FAST isn't
+    set, so a resource with only one deployment keeps working -- routing is an optimisation,
+    never a requirement.
+    """
+    deep = os.environ.get("AZURE_AI_MODEL", FOUNDRY_DEFAULT_MODEL)
+    if tier == FAST_TIER:
+        return os.environ.get("AZURE_AI_MODEL_FAST") or deep
+    return deep
+
+
+def routing() -> dict:
+    """What a call would use right now, per tier. Exposed on /health for debugging."""
+    if not _foundry_configured():
+        return {"provider": active_provider(), "fast": None, "deep": None}
+    return {
+        "provider": "foundry",
+        "fast": _foundry_model(FAST_TIER),
+        "deep": _foundry_model(DEEP_TIER),
+    }
 
 
 def _foundry_url() -> str:
@@ -99,9 +134,9 @@ def _post(url: str, headers: dict, body: dict) -> dict | None:
         return None
 
 
-def _complete_foundry(system: str, prompt: str, max_tokens: int) -> str | None:
+def _complete_foundry(system: str, prompt: str, max_tokens: int, tier: str) -> str | None:
     key = os.environ["AZURE_AI_API_KEY"]
-    model = os.environ.get("AZURE_AI_MODEL", FOUNDRY_DEFAULT_MODEL)
+    model = _foundry_model(tier)
     payload = _post(
         _foundry_url(),
         # Send both auth headers: the classic Azure OpenAI surface reads `api-key`,
@@ -147,12 +182,18 @@ def _complete_anthropic(system: str, prompt: str, max_tokens: int) -> str | None
         return None
 
 
-def complete(system: str, prompt: str, max_tokens: int = 300) -> tuple[str, str] | None:
+def complete(
+    system: str, prompt: str, max_tokens: int = 300, tier: str = DEEP_TIER
+) -> tuple[str, str] | None:
     """Return (text, provider) — provider is "foundry" or "anthropic" — or None if
     no provider is configured/reachable. Never raises — a flaky network must never
-    break the intervention flow, only fall back to templated text."""
+    break the intervention flow, only fall back to templated text.
+
+    `tier` is "fast" for short interactive text or "deep" for reasoning-heavy calls. It
+    selects the Foundry deployment; the Anthropic fallback ignores it.
+    """
     if _foundry_configured():
-        text = _complete_foundry(system, prompt, max_tokens)
+        text = _complete_foundry(system, prompt, max_tokens, tier)
         if text:
             return text, "foundry"
         # Foundry configured but unreachable/errored: try Anthropic if we also have it.

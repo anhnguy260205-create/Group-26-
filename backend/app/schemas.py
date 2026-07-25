@@ -201,14 +201,34 @@ class CapacityPoint(BaseModel):
     driver: str
 
 
+class CapacityProjectionPoint(BaseModel):
+    """A projected future day. Computed by the app, never by the model."""
+
+    date: datetime.date
+    capacity: int
+    weekday: str
+
+
 class CapacityForecast(BaseModel):
     points: list[CapacityPoint]
+    # Multi-day projection: where capacity is heading, not just where it is.
+    projection: list[CapacityProjectionPoint] = []
     days_of_data: int
     avg_capacity: Optional[int] = None
     trend: Literal["declining", "steady", "improving"]
     consecutive_decline_days: int
     recurring_driver: Optional[str] = None
+    # First projected day, kept for the single-number readout.
     predicted_capacity: Optional[int] = None
+    # The day capacity is projected to cross the low line, if it does within the horizon.
+    risk_day: Optional[datetime.date] = None
+    risk_day_weekday: Optional[str] = None
+    risk_day_capacity: Optional[int] = None
+    # Recurring weekday dip, if the history supports calling it one.
+    weekday_pattern: Optional[str] = None
+    weekday_pattern_note: Optional[str] = None
+    weekday_pattern_drop: Optional[int] = None
+    low_capacity_line: int = 55
     risk: Literal["low", "moderate", "high"]
     forecast: str
     suggestions: list[str]
@@ -237,7 +257,12 @@ class RechargeActionOut(BaseModel):
     label: str
     detail: str
     reconnect: bool
+    # low | medium — actions are filtered by effort when capacity is very low.
+    effort: str = "low"
     driver: Optional[str] = None
+    # Why this action was chosen for this cause. Shown in the UI so the recommendation
+    # can be read as reasoning rather than a fixed prompt.
+    why: Optional[str] = None
     status: Literal["pending", "done", "skipped"]
 
 
@@ -263,6 +288,13 @@ class ProgressOut(BaseModel):
 
 class OpeningLine(BaseModel):
     opening: str
+    # Which register the companion chose: depleted | protect | harder | brighter | steady | unknown
+    mode: str = "unknown"
+    capacity: Optional[int] = None
+    # Recurring-pattern observation, raised as an open question when relevant.
+    note: Optional[str] = None
+    suggested_action_kind: Optional[str] = None
+    suggested_action_label: Optional[str] = None
     source: Literal["foundry", "anthropic", "rule"]
 
 

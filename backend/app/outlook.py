@@ -73,7 +73,7 @@ def _rule_consequences(risk: str, driver: str | None) -> str:
 
 
 SYSTEM_PROMPT = (
-    "You analyze a family caregiver's recent Capacity trend for a support app. You are not a "
+    "You analyze a caregiver's recent Capacity trend for a support app. You are not a "
     "clinician and NEVER diagnose or predict medical outcomes. Frame everything supportively and "
     "in terms of caregiving sustainability and burnout, not illness. Return ONLY a JSON object: "
     '{"causes": "<2-3 warm sentences on WHY their state has stayed low — the recurring driver and '

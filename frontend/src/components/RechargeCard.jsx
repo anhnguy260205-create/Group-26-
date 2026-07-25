@@ -25,9 +25,14 @@ export function RechargeCard() {
 
   if (!actions) return null
 
+  // Every action in a day's plan shares the same reasoning (it comes from the same cause),
+  // so it's shown once above the list rather than repeated on each row.
+  const why = actions.find((a) => a.why)?.why
+
   return (
     <div className="understand-section">
       <h2>Recharge &amp; Reconnect</h2>
+      {why && <p className="recharge-why">{why}</p>}
       {actions.length === 0 ? (
         <p className="empty">Do a check-in and I'll suggest a recovery action here.</p>
       ) : (
@@ -40,6 +45,9 @@ export function RechargeCard() {
                   {a.reconnect && <span className="recharge-tag">reconnect</span>}
                 </span>
                 <span className="recharge-detail">{a.detail}</span>
+                {a.driver && (
+                  <span className="recharge-because">Chosen because your main driver today is {a.driver.toLowerCase()}</span>
+                )}
               </div>
               {a.status === 'pending' ? (
                 <div className="recharge-actions">

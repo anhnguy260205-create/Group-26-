@@ -69,7 +69,7 @@ export function MePage() {
       <div className="understand-section">
         <h2>About</h2>
         <p className="section-sub">
-          A support tool for family caregivers — not a medical device, and not a diagnosis. If you're
+          A support tool for caregivers — not a medical device, and not a diagnosis. If you're
           in crisis, please reach out to local emergency services or a crisis line.
         </p>
       </div>
