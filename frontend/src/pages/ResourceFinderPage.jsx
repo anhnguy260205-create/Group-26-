@@ -31,7 +31,10 @@ export function ResourceFinderPage() {
 
       <ul className="resource-list">
         {resources.length === 0 && <p className="empty">No resources found for this region.</p>}
-        {resources.map((r) => (
+        {[...resources]
+          .sort((a, b) => a.category.localeCompare(b.category)
+          )
+          .map((r) => (
           <li key={r.name} className={`resource-card resource-${r.category}`}>
             <div className="resource-header">
               <span className="resource-name">{r.name}</span>
