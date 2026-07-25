@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { api } from '../api'
 import { useFacePresence } from '../hooks/useFacePresence'
 import { Intervention } from './Intervention'
@@ -21,6 +21,7 @@ const NAV_ITEMS = [
 ]
 
 export function Layout() {
+  const location = useLocation()
   const [monitoringEnabled, setMonitoringEnabled] = useState(true)
   const [overlay, setOverlay] = useState('none') // none | intervention | reflection
   const [session, setSession] = useState(null) // { id, reasoning }
@@ -88,7 +89,7 @@ export function Layout() {
       <nav className="sidebar">
         <div className="sidebar-brand">
           <h1>Group-26</h1>
-          <p className="app-tagline">We watch over the caregiver.</p>
+          <p className="app-tagline">We watch over you, not your to-do list.</p>
         </div>
         <ul className="nav-list">
           {NAV_ITEMS.map((item) => (
@@ -111,6 +112,15 @@ export function Layout() {
       </nav>
       <main className="content">
         <Outlet />
+        {/* Standing footer on every page: family hand-offs and self-care both have a ceiling,
+            and the caregiver shouldn't have to go hunting for the door past it. Hidden on the
+            resources page itself, and absent from the intervention/reflection overlays above —
+            mid-breathing is not the moment to offer someone a link. */}
+        {location.pathname !== '/resources' && (
+          <p className="outside-help">
+            Need outside help? <Link to="/resources">Find support resources</Link>
+          </p>
+        )}
       </main>
     </div>
   )

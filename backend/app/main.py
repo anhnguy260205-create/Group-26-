@@ -13,6 +13,7 @@ from . import (
     delegation,
     emotion,
     journal,
+    llm,
     models,
     recharge,
     reflection,
@@ -58,7 +59,9 @@ app.add_middleware(
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    """Liveness plus which LLM tier maps to which deployment, so a misrouted demo is
+    diagnosable without reading the environment by hand."""
+    return {"status": "ok", "llm": llm.routing()}
 
 
 # ---------------------------------------------------------------------------
@@ -305,9 +308,14 @@ def capacity_outlook(db: Session = Depends(get_db)):
 
 @app.get("/recharge/today", response_model=list[schemas.RechargeActionOut])
 def recharge_today(db: Session = Depends(get_db)):
+    """Today's recovery actions, chosen from the *cause* of the capacity drop (the check-in's
+    main driver) and scaled to how much capacity is actually left."""
     latest = db.query(models.Checkin).order_by(models.Checkin.created_at.desc()).first()
     driver = latest.main_driver if latest else None
-    return [recharge.to_dict(a) for a in recharge.actions_for_today(db, driver)]
+    capacity = latest.capacity_score if latest else None
+    plan = recharge.plan_for(driver, capacity)
+    actions = recharge.actions_for_today(db, driver, capacity)
+    return [recharge.to_dict(a, why=plan["why"]) for a in actions]
 
 
 @app.post("/recharge/{action_id}/status", response_model=schemas.RechargeActionOut)
@@ -319,7 +327,11 @@ def set_recharge_status(action_id: int, body: schemas.RechargeStatusUpdate, db: 
     action.completed_at = datetime.datetime.utcnow() if body.status == "done" else None
     db.commit()
     db.refresh(action)
-    return recharge.to_dict(action)
+    latest = db.query(models.Checkin).order_by(models.Checkin.created_at.desc()).first()
+    plan = recharge.plan_for(
+        latest.main_driver if latest else None, latest.capacity_score if latest else None
+    )
+    return recharge.to_dict(action, why=plan["why"])
 
 
 @app.get("/progress", response_model=schemas.ProgressOut)
@@ -329,8 +341,9 @@ def progress_evidence(db: Session = Depends(get_db)):
 
 @app.get("/companion/opening", response_model=schemas.OpeningLine)
 def companion_opening(db: Session = Depends(get_db)):
-    line, source = companion.opening_line(db)
-    return schemas.OpeningLine(opening=line, source=source)
+    """Proactive opening. Carries the register the companion chose and, when capacity is low,
+    a suggested action that *reduces* what's being asked of the caregiver."""
+    return schemas.OpeningLine(**companion.opening_line(db))
 
 
 # ---------------------------------------------------------------------------

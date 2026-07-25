@@ -92,7 +92,7 @@ def generate(db: Session) -> dict:
     )
     result = llm.complete(
         system=(
-            "You write a short, caring weekly reflection for a family caregiver. You never "
+            "You write a short, caring weekly reflection for a caregiver. You never "
             "diagnose or give medical advice."
         ),
         prompt=prompt,

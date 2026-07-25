@@ -1,20 +1,27 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
-import { CoordinateCard } from '../components/CoordinateCard'
 import { RechargeCard } from '../components/RechargeCard'
 import { YesterdayProgress } from '../components/YesterdayProgress'
 
-// AI Copilot = proactive opening line + three cards (Recharge & Reconnect, Coordinate,
-// Progress) + a warm chat.
+// AI Copilot = two cards (Recharge & Reconnect, Progress) + a warm chat.
+//
+// Coordinate lives on Home only. It's a task hand-off tool, not a conversation, and having it
+// here duplicated the same card on two pages. The component and its backend (/delegation/suggest,
+// /tasks) are untouched — task load also feeds scoring.behavioral_score(), which the intervention
+// threshold depends on, so nothing about tasks can be removed safely.
+//
+// The capacity-aware opening line was removed from this page on purpose: it told the user to
+// skip their check-in, but by the time they reach Copilot they've already passed Check-in, so
+// the advice arrived too late to act on. The /companion/opening endpoint is still live and
+// still returns the register, note and suggested action — re-mount it on the Home page (above
+// the check-in entry point) rather than restoring it here.
 export function CompanionPage() {
-  const [opening, setOpening] = useState(null)
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const bottomRef = useRef(null)
 
   useEffect(() => {
-    api.companionOpening().then(setOpening).catch(() => {})
     api.companionMessages().then(setMessages).catch(() => {})
   }, [])
 
@@ -48,10 +55,7 @@ export function CompanionPage() {
       <h1>AI Copilot</h1>
       <p className="page-subtitle">Warm support, a recovery plan, and help coordinating care.</p>
 
-      {opening && <div className="copilot-opening">{opening.opening}</div>}
-
       <RechargeCard />
-      <CoordinateCard />
       <YesterdayProgress />
 
       <div className="understand-section">

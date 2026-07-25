@@ -189,7 +189,7 @@ def _capacity_rule_reason(main_key: str, capacity: int) -> str:
 
 
 CAPACITY_SYSTEM_PROMPT = (
-    "You gauge a family caregiver's remaining capacity for a support app. You are not a "
+    "You gauge a caregiver's remaining capacity for a support app. You are not a "
     "clinician and never diagnose. You read a short journal entry, five 0-10 self-report "
     "sliders, and sometimes a live facial-tension reading. Return ONLY a JSON object, no "
     "other text, in exactly this shape: "
@@ -348,6 +348,8 @@ def _explain(
         system="You are a calm, brief clinical-empathy assistant for a caregiver support app.",
         prompt=prompt,
         max_tokens=80,
+        # Fast tier: one sentence, rendered inline while the user waits.
+        tier="fast",
     )
     if result:
         text, provider = result
@@ -420,5 +422,7 @@ def generate_breathing_guidance(
         system="You are a calm respiratory therapist for burnout prevention.",
         prompt=prompt,
         max_tokens=30,
+        # Fast tier: this fires mid-breathing-session, so latency is the whole requirement.
+        tier="fast",
     )
     return result[0] if result else None
